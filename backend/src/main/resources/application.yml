@@ -32,3 +32,4 @@ app:
   jwt:
     secret: "12342222233232325678987654321213324355232323122321"
     expiration-minutes: 60
+    refresh-expiration-days: 30
