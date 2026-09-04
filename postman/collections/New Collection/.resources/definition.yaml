@@ -12,3 +12,36 @@ variables:
   - key: bearer_token_0ab4
     secret: true
     disabled: false
+  - key: json_web_token_06tk
+    secret: true
+    disabled: false
+  - key: bearer_token_03c1
+    secret: true
+    disabled: false
+  - key: supabase_service_role_api_key_0r5u
+    secret: true
+    disabled: false
+  - key: bearer_token_08o9
+    secret: true
+    disabled: false
+  - key: json_web_token_0r5u
+    secret: true
+    disabled: false
+  - key: json_web_token_00xz
+    secret: true
+    disabled: false
+  - key: bearer_token_1dye
+    secret: true
+    disabled: false
+  - key: supabase_service_role_api_key_00xz
+    secret: true
+    disabled: false
+  - key: json_web_token_0iji
+    secret: true
+    disabled: false
+  - key: json_web_token_160c
+    secret: true
+    disabled: false
+  - key: bearer_token_08ey
+    secret: true
+    disabled: false

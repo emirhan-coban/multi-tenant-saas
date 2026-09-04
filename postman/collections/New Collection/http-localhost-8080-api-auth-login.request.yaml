@@ -3,6 +3,8 @@ name: http://localhost:8080/api/auth/login
 description: ""
 url: http://localhost:8080/api/auth/login
 method: POST
+headers:
+  Authorization: Beraer {{json_web_token_0r5u}}
 body:
   type: json
   content: "{\r
