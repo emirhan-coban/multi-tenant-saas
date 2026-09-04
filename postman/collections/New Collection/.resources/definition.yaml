@@ -45,3 +45,27 @@ variables:
   - key: bearer_token_08ey
     secret: true
     disabled: false
+  - key: supabase_service_role_api_key_160c
+    secret: true
+    disabled: false
+  - key: bearer_token_10r8
+    secret: true
+    disabled: false
+  - key: supabase_service_role_api_key_0fsq
+    secret: true
+    disabled: false
+  - key: json_web_token_0fsq
+    secret: true
+    disabled: false
+  - key: bearer_token_0ux5
+    secret: true
+    disabled: false
+  - key: supabase_service_role_api_key_0c4i
+    secret: true
+    disabled: false
+  - key: supabase_service_role_api_key_05os
+    secret: true
+    disabled: false
+  - key: bearer_token_0vvb
+    secret: true
+    disabled: false
