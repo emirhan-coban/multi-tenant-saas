@@ -61,10 +61,12 @@ public class AuthService {
         membership.setRole("OWNER");
         membershipRepository.save(membership);
 
-        String token = jwtService.generateToken(user.getId(), tenant.getId(), "OWNER");
+        String token = jwtService.generateAccessToken(user.getId(), tenant.getId(), "OWNER");
+        String refreshToken = jwtService.generateRefreshToken(user.getId(), tenant.getId(), "OWNER");
 
         return new AuthResponse(
             token,
+            refreshToken,
             List.of(new AuthResponse.MembershipInfo(tenant.getId(), tenant.getName(), "OWNER"))
         );
     }
@@ -86,10 +88,15 @@ public class AuthService {
 
         Membership primary = memberships.get(0);
 
-        String token = jwtService.generateToken(
+        String token = jwtService.generateAccessToken(
                 user.getId(),
                 primary.getTenant().getId(),
                 primary.getRole()
+        );
+        String refreshToken = jwtService.generateRefreshToken(
+            user.getId(),
+            primary.getTenant().getId(),
+            primary.getRole()
         );
 
         List<AuthResponse.MembershipInfo> membershipInfos = memberships.stream()
@@ -100,8 +107,28 @@ public class AuthService {
                 ))
                 .toList();
 
-        return new AuthResponse(token, membershipInfos);
+        return new AuthResponse(token, refreshToken, membershipInfos);
     }
+
+        @Transactional(readOnly = true)
+        public AuthResponse refresh(String refreshToken) {
+        var claims = jwtService.parseRefreshToken(refreshToken);
+        var userId = java.util.UUID.fromString(claims.getSubject());
+        var tenantId = java.util.UUID.fromString(claims.get("tenantId", String.class));
+        var memberships = membershipRepository.findByUserId(userId);
+        var membership = memberships.stream()
+            .filter(item -> item.getTenant().getId().equals(tenantId))
+            .findFirst()
+            .orElseThrow(() -> new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi"));
+
+        String accessToken = jwtService.generateAccessToken(userId, tenantId, membership.getRole());
+        String newRefreshToken = jwtService.generateRefreshToken(userId, tenantId, membership.getRole());
+        var membershipInfos = memberships.stream()
+            .map(item -> new AuthResponse.MembershipInfo(
+                item.getTenant().getId(), item.getTenant().getName(), item.getRole()))
+            .toList();
+        return new AuthResponse(accessToken, newRefreshToken, membershipInfos);
+        }
 
     private String generateUniqueSlug(String tenantName) {
         String base = slugify(tenantName);

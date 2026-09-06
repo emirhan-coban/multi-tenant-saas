@@ -1,1 +1,6 @@
 .env
+
+# Web dependencies and build output
+web/node_modules/
+web/dist/
+*.tsbuildinfo

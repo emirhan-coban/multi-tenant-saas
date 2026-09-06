@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record AuthResponse(
         String accessToken,
+        String refreshToken,
         List<MembershipInfo> memberships
 ) {
     public record MembershipInfo(
