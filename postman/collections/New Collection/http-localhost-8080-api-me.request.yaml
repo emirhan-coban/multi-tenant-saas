@@ -1,8 +1,0 @@
-$kind: http-request
-name: http://localhost:8080/api/me
-description: ""
-url: http://localhost:8080/api/me
-method: GET
-headers:
-  Authorization: "{{bearer_token_06gt}}"
-order: 4250410983580435

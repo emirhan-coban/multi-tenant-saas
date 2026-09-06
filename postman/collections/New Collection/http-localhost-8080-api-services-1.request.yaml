@@ -1,0 +1,8 @@
+$kind: http-request
+name: http://localhost:8080/api/services
+description: ""
+url: http://localhost:8080/api/services
+method: GET
+headers:
+  Authorization: Bearer {{json_web_token_00xz}}
+order: 4428878401734211

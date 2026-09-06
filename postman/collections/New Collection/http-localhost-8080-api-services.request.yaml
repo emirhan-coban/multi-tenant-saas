@@ -1,0 +1,21 @@
+$kind: http-request
+name: http://localhost:8080/api/services
+description: ""
+url: http://localhost:8080/api/services
+method: POST
+headers:
+  Authorization: Bearer {{supabase_service_role_api_key_0r5u}}
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"Saç Kesimi\",\r
+
+    \  \"durationMin\": 30,\r
+
+    \  \"price\": 500,\r
+
+    \  \"bufferMin\": 5\r
+
+    }"
+order: 4342880254861845

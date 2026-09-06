@@ -1,0 +1,1 @@
+alter table tenants force row level security;

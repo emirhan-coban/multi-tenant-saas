@@ -1,0 +1,37 @@
+package com.saas.backend.personel;
+
+import com.saas.backend.config.AuthenticatedUser;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/staff")
+public class PersonelController {
+
+    private final PersonelService personelService;
+
+    public PersonelController(PersonelService personelService) {
+        this.personelService = personelService;
+    }
+
+    @PostMapping("/invite")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public ResponseEntity<PersonelDtos.DavetSonucu> davetEt(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @Valid @RequestBody PersonelDtos.DavetEtRequest request
+    ) {
+        var response = personelService.davetEt(user, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping
+    public List<PersonelDtos.PersonelResponse> listele() {
+        return personelService.listele();
+    }
+}
