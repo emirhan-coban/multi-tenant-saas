@@ -1,9 +1,21 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AuthScreen } from './screens/AuthScreen';
-import { AppScreen } from './screens/AppScreen';
-import { AuthProvider, useAuth } from './store/auth';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import { AuthProvider } from './store/auth';
+import { AppRoutes } from './router/AppRoutes';
+import { createQueryClient } from './query/client';
 import './styles.css';
 
-function App() { const { ready, session } = useAuth(); if (!ready) return <div className="loading">Oturum kontrol ediliyor...</div>; return session ? <AppScreen /> : <AuthScreen />; }
-createRoot(document.getElementById('root')!).render(<StrictMode><AuthProvider><App /></AuthProvider></StrictMode>);
+const queryClient = createQueryClient();
+const router = createBrowserRouter([{ path: '*', element: <AppRoutes /> }]);
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>
+  </StrictMode>,
+);

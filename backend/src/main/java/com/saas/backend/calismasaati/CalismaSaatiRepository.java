@@ -5,5 +5,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface CalismaSaatiRepository extends JpaRepository<CalismaSaati, UUID> {
-    List<CalismaSaati> findByPersonelId(UUID personelId);
+    List<CalismaSaati> findByPersonelIdAndTenantIdOrderByDayOfWeek(UUID personelId, UUID tenantId);
 }

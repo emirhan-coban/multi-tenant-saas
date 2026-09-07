@@ -1,0 +1,139 @@
+package com.saas.backend.calismasaati;
+
+import com.saas.backend.auth.ApiException;
+import com.saas.backend.auth.JwtService;
+import com.saas.backend.config.AuthenticatedUser;
+import com.saas.backend.personel.Personel;
+import com.saas.backend.personel.PersonelRepository;
+import com.saas.backend.tenant.Tenant;
+import com.saas.backend.tenant.TenantRepository;
+import com.saas.backend.user.User;
+import com.saas.backend.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+// Run against a disposable PostgreSQL database; see README for the command.
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@EnabledIfEnvironmentVariable(named = "HOURS_INTEGRATION", matches = "true")
+class WorkingHoursIntegrationTests {
+    @Autowired CalismaSaatiService service;
+    @Autowired PersonelRepository staff;
+    @Autowired TenantRepository tenants;
+    @Autowired UserRepository users;
+    @Autowired JwtService jwt;
+    @Autowired JdbcTemplate jdbc;
+    @Value("${local.server.port}") int port;
+    AuthenticatedUser owner;
+    Personel person;
+
+    @BeforeEach void setup() {
+        var tenant = new Tenant(); tenant.setName("Hours QA"); tenant.setSlug(UUID.randomUUID().toString());
+        tenant = tenants.saveAndFlush(tenant);
+        var user = new User(); user.setEmail(UUID.randomUUID() + "@example.test"); user.setFullName("QA"); user.setPasswordHash("unused");
+        user = users.saveAndFlush(user);
+        person = new Personel(); person.setTenant(tenant); person.setUser(user); person.setDisplayName("QA Staff");
+        person = staff.saveAndFlush(person);
+        owner = new AuthenticatedUser(user.getId(), tenant.getId(), "OWNER");
+    }
+
+    CalismaSaatiDtos.HaftalikRequest week(int start, int openDays) {
+        return new CalismaSaatiDtos.HaftalikRequest(person.getId(), IntStream.range(0, 7)
+                .mapToObj(day -> new CalismaSaatiDtos.GunRequest(day, day >= openDays,
+                        day >= openDays ? null : LocalTime.of(start, 0), day >= openDays ? null : LocalTime.of(18, 0))).toList());
+    }
+
+    @Test void repeatedSaveReplacesWeekAndClosedDaysRemoveRows() {
+        service.haftayiKaydet(owner, week(9, 5));
+        service.haftayiKaydet(owner, week(10, 5));
+        var saved = service.listele(owner, person.getId());
+        assertEquals(5, saved.size());
+        assertTrue(saved.stream().allMatch(row -> row.startTime().equals(LocalTime.of(10, 0))));
+        service.haftayiKaydet(owner, week(9, 0));
+        assertTrue(service.listele(owner, person.getId()).isEmpty());
+    }
+
+    @Test void duplicateDaysAndInvalidRangesLeaveOriginalWeekIntact() {
+        service.haftayiKaydet(owner, week(9, 5));
+        var days = new ArrayList<>(week(10, 5).days()); days.set(6, days.get(0));
+        assertThrows(ApiException.class, () -> service.haftayiKaydet(owner, new CalismaSaatiDtos.HaftalikRequest(person.getId(), days)));
+        assertThrows(ApiException.class, () -> service.haftayiKaydet(owner, week(19, 5)));
+        assertEquals(LocalTime.of(9, 0), service.listele(owner, person.getId()).getFirst().startTime());
+        assertEquals(5, service.listele(owner, person.getId()).size());
+    }
+
+    @Test void databaseFailureAfterDeleteRollsBackWholeWeek() {
+        service.haftayiKaydet(owner, week(9, 5));
+        jdbc.execute("alter table working_hours add constraint qa_reject_hour check (start_time <> time '03:00')");
+        try {
+            assertThrows(RuntimeException.class, () -> service.haftayiKaydet(owner, week(3, 5)));
+            var saved = service.listele(owner, person.getId());
+            assertEquals(5, saved.size());
+            assertTrue(saved.stream().allMatch(row -> row.startTime().equals(LocalTime.of(9, 0))));
+        } finally { jdbc.execute("alter table working_hours drop constraint qa_reject_hour"); }
+    }
+
+    @Test void simultaneousSavesProduceOneCompleteWeek() throws Exception {
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(() -> { start.await(); return service.haftayiKaydet(owner, week(9, 7)); });
+            var second = pool.submit(() -> { start.await(); return service.haftayiKaydet(owner, week(10, 7)); });
+            start.countDown(); first.get(15, TimeUnit.SECONDS); second.get(15, TimeUnit.SECONDS);
+        }
+        var saved = service.listele(owner, person.getId());
+        assertEquals(7, saved.size());
+        assertEquals(1, saved.stream().map(CalismaSaatiDtos.CalismaSaatiResponse::startTime).distinct().count());
+    }
+
+    @Test void legacyPostCannotDuplicateAWeekday() {
+        service.haftayiKaydet(owner, week(9, 5));
+        assertThrows(ApiException.class, () -> service.olustur(owner, new CalismaSaatiDtos.CalismaSaatiRequest(
+                person.getId(), 0, LocalTime.of(10, 0), LocalTime.of(18, 0))));
+        assertEquals(5, service.listele(owner, person.getId()).size());
+    }
+
+    @Test void foreignTenantCannotReadOrWriteStaffSchedule() {
+        service.haftayiKaydet(owner, week(9, 5));
+        var foreign = new AuthenticatedUser(owner.userId(), UUID.randomUUID(), "OWNER");
+        assertThrows(ApiException.class, () -> service.haftayiKaydet(foreign, week(10, 5)));
+        assertThrows(ApiException.class, () -> service.listele(foreign, person.getId()));
+        assertEquals(LocalTime.of(9, 0), service.listele(owner, person.getId()).getFirst().startTime());
+    }
+
+    @Test void httpPutEnforcesRoleAndValidatesAllSevenDays() throws Exception {
+        String days = IntStream.range(0, 7).mapToObj(day -> "{\"dayOfWeek\":" + day + ",\"closed\":true,\"startTime\":null,\"endTime\":null}")
+                .collect(java.util.stream.Collectors.joining(","));
+        String body = "{\"personelId\":\"" + person.getId() + "\",\"days\":[" + days + "]}";
+        assertEquals(403, put(body, "STAFF"));
+        assertEquals(200, put(body, "OWNER"));
+        assertEquals(200, put(body, "MANAGER"));
+        assertEquals(400, put("{\"personelId\":\"" + person.getId() + "\",\"days\":[]}", "OWNER"));
+    }
+
+    private int put(String body, String role) throws Exception {
+        var token = jwt.generateAccessToken(owner.userId(), owner.tenantId(), role);
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/working-hours"))
+                .header("Authorization", "Bearer " + token).header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(body)).build();
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).statusCode();
+    }
+}

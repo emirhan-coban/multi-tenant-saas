@@ -31,8 +31,17 @@ public class CalismaSaatiController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PutMapping
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public List<CalismaSaatiDtos.CalismaSaatiResponse> haftayiKaydet(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @Valid @RequestBody CalismaSaatiDtos.HaftalikRequest request
+    ) {
+        return calismaSaatiService.haftayiKaydet(user, request);
+    }
+
     @GetMapping
-    public List<CalismaSaatiDtos.CalismaSaatiResponse> listele(@RequestParam UUID personelId) {
-        return calismaSaatiService.listele(personelId);
+    public List<CalismaSaatiDtos.CalismaSaatiResponse> listele(@AuthenticationPrincipal AuthenticatedUser user, @RequestParam UUID personelId) {
+        return calismaSaatiService.listele(user, personelId);
     }
 }

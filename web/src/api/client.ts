@@ -1,41 +1,82 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, CanceledError, type InternalAxiosRequestConfig } from 'axios';
+import type { AuthData } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
 const REFRESH_KEY = 'saas.refreshToken';
 let accessToken: string | null = null;
-let refreshPromise: Promise<string | null> | null = null;
+let sessionController = new AbortController();
+let refreshPromise: Promise<AuthData | null> | null = null;
+const sessionListeners = new Set<(data: AuthData | null) => void>();
 
-export const api = axios.create({ baseURL: API_URL, headers: { 'Content-Type': 'application/json' } });
+const config = { baseURL: API_URL, headers: { 'Content-Type': 'application/json' }, timeout: 15_000 };
+export const api = axios.create(config);
+// Auth requests must not recursively trigger the protected API's 401 interceptor.
+const authApi = axios.create(config);
 
-export function setAccessToken(token: string | null) { accessToken = token; }
 export function getRefreshToken() { return localStorage.getItem(REFRESH_KEY); }
-export function persistRefreshToken(token: string | null) {
-  if (token) localStorage.setItem(REFRESH_KEY, token); else localStorage.removeItem(REFRESH_KEY);
+function applyTokens(data: AuthData) {
+  accessToken = data.accessToken;
+  localStorage.setItem(REFRESH_KEY, data.refreshToken);
+}
+export function subscribeSession(listener: (data: AuthData | null) => void) {
+  sessionListeners.add(listener);
+  return () => { sessionListeners.delete(listener); };
+}
+export function resetSessionTransport() {
+  sessionController.abort();
+  sessionController = new AbortController();
+  refreshPromise = null;
+  accessToken = null;
+  localStorage.removeItem(REFRESH_KEY);
 }
 
-async function refreshAccessToken() {
+export function restoreSession(): Promise<AuthData | null> {
+  if (refreshPromise) return refreshPromise;
   const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
-  if (!refreshPromise) {
-    refreshPromise = api.post('/api/auth/refresh', { refreshToken })
-      .then(({ data }) => { setAccessToken(data.accessToken); persistRefreshToken(data.refreshToken); return data.accessToken; })
-      .catch(() => { setAccessToken(null); persistRefreshToken(null); return null; })
-      .finally(() => { refreshPromise = null; });
-  }
-  return refreshPromise;
+  if (!refreshToken) return Promise.resolve(null);
+  const controller = sessionController;
+  const pending = authApi.post<AuthData>('/api/auth/refresh', { refreshToken }, { signal: controller.signal })
+    .then(({ data }) => {
+      if (controller.signal.aborted) return null;
+      applyTokens(data);
+      sessionListeners.forEach(listener => listener(data));
+      return data;
+    })
+    .catch(() => {
+      if (!controller.signal.aborted) {
+        resetSessionTransport();
+        sessionListeners.forEach(listener => listener(null));
+      }
+      return null;
+    })
+    .finally(() => { if (refreshPromise === pending) refreshPromise = null; });
+  refreshPromise = pending;
+  return pending;
 }
 
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
-  return config;
-});
+export async function authenticate(path: '/api/auth/login' | '/api/auth/register', values: object) {
+  const controller = sessionController;
+  const { data } = await authApi.post<AuthData>(path, values, { signal: controller.signal });
+  if (controller.signal.aborted) throw new CanceledError();
+  applyTokens(data);
+  return data;
+}
+
+api.interceptors.request.use((request: InternalAxiosRequestConfig) => {
+  const requestSignal = request.signal as AbortSignal | undefined;
+  request.signal = requestSignal
+    ? AbortSignal.any([requestSignal, sessionController.signal])
+    : sessionController.signal;
+  if (accessToken) request.headers.Authorization = `Bearer ${accessToken}`;
+  return request;
+}, undefined, { synchronous: true });
 
 api.interceptors.response.use(response => response, async (error: AxiosError) => {
   const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
-  if (error.response?.status !== 401 || !original || original._retry || original.url?.includes('/api/auth/refresh')) throw error;
+  if (error.response?.status !== 401 || !original || original._retry || original.signal?.aborted) throw error;
   original._retry = true;
-  const token = await refreshAccessToken();
-  if (!token) throw error;
-  original.headers.Authorization = `Bearer ${token}`;
+  const data = await restoreSession();
+  if (!data || original.signal?.aborted) throw error;
+  original.headers.Authorization = `Bearer ${data.accessToken}`;
   return api(original);
 });
