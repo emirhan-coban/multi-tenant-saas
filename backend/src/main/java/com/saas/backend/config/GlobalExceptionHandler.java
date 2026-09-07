@@ -13,10 +13,27 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, String>> optimistic(Exception ex) {
+        return ResponseEntity.status(409).body(Map.of("code","STALE_VERSION",
+            "message","Randevu başka biri tarafından değiştirildi. Listeyi yenileyin."));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> integrity(org.springframework.dao.DataIntegrityViolationException ex) {
+        for (Throwable cause=ex; cause!=null; cause=cause.getCause()) {
+            if (cause instanceof java.sql.SQLException sql && "23P01".equals(sql.getSQLState()))
+                return ResponseEntity.status(409).body(Map.of("code","SLOT_UNAVAILABLE",
+                    "message","Bu saat başka bir randevuyla çakışıyor. Müsait saatleri yenileyin."));
+        }
+        return ResponseEntity.status(409).body(Map.of("code","DATA_CONFLICT","message","Kayıt mevcut verilerle çakışıyor."));
+    }
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, Object>> handleApiException(ApiException ex) {
         HttpStatus status = switch (ex.getCode()) {
-            case "EMAIL_EXISTS" -> HttpStatus.CONFLICT;
+            case "EMAIL_EXISTS", "SLOT_UNAVAILABLE", "STALE_VERSION", "IDEMPOTENCY_CONFLICT", "INVALID_TRANSITION" -> HttpStatus.CONFLICT;
+            case "NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "INVALID_CREDENTIALS" -> HttpStatus.UNAUTHORIZED;
             case "NO_TENANT" -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.BAD_REQUEST;

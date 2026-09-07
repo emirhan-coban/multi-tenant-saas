@@ -73,7 +73,7 @@ public class PersonelService {
 
     @Transactional(readOnly = true)
     public List<PersonelDtos.PersonelResponse> listele() {
-        return personelRepository.findByActiveTrue()
+        return personelRepository.findByTenantIdAndActiveTrue(com.saas.backend.config.TenantContext.get())
                 .stream()
                 .map(p -> new PersonelDtos.PersonelResponse(p.getId(), p.getDisplayName(), p.isActive()))
                 .toList();

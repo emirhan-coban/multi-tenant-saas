@@ -11,7 +11,6 @@ import com.saas.backend.user.User;
 import com.saas.backend.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,10 +31,9 @@ import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// Run against a disposable PostgreSQL database; see README for the command.
+// Shared Testcontainers PostgreSQL; see README for the command.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@EnabledIfEnvironmentVariable(named = "HOURS_INTEGRATION", matches = "true")
-class WorkingHoursIntegrationTests {
+class WorkingHoursIntegrationTests extends com.saas.backend.PostgresTestBase {
     @Autowired CalismaSaatiService service;
     @Autowired PersonelRepository staff;
     @Autowired TenantRepository tenants;

@@ -11,6 +11,7 @@ import java.util.UUID;
 
 public interface PersonelRepository extends JpaRepository<Personel, UUID> {
     List<Personel> findByActiveTrue();
+    List<Personel> findByTenantIdAndActiveTrue(UUID tenantId);
     Optional<Personel> findByIdAndTenantIdAndActiveTrue(UUID id, UUID tenantId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
