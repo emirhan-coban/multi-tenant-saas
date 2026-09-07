@@ -156,7 +156,12 @@ a:focus-visible, button:focus-visible { outline: 3px solid #658031; outline-offs
 .info-notice { padding: 18px; background: #eaf0e1; border-radius: 8px; line-height: 1.6; }
 @media (max-width: 760px) { .staff-list li { padding: 20px 18px; gap: 12px; } .password-actions { flex-direction: column; } }
 
-.field select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: white; font: inherit; }
+.field select, .field textarea { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: white; font: inherit; }
+.field textarea { min-height: 90px; resize: vertical; }
+.appointments-page { display: grid; gap: 24px; }
+.appointments-page > .field { max-width: 320px; }
+.appointments-page section[aria-label="Randevu listesi"] { display: grid; gap: 16px; }
+.appointments-page .service-actions { flex-wrap: wrap; }
 .staff-picker { max-width: 420px; margin-bottom: 28px; }
 .hours-shortcut { display: flex; gap: 20px; align-items: flex-end; margin-bottom: 24px; padding: 20px; border: 1px solid var(--line); background: #e8eee3; border-radius: 8px; }
 .hours-shortcut .field { flex: 1; }

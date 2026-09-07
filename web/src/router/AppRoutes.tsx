@@ -8,6 +8,7 @@ import { TenantProvider, useTenant } from '../store/tenant';
 import { PanelLayout } from '../layouts/PanelLayout';
 import { AccountScreen } from '../screens/AccountScreen';
 import { WorkingHoursScreen } from '../screens/WorkingHoursScreen';
+import { AppointmentsScreen } from '../screens/AppointmentsScreen';
 import { canAccess, managementRoles, memberRoles } from './navigation';
 import type { Role } from '../api/types';
 import { useCurrentUser } from '../query/management';
@@ -74,6 +75,7 @@ export function AppRoutes() {
             <Route path="services" element={<ServicesScreen />} />
             <Route path="staff" element={<StaffScreen />} />
             <Route path="working-hours" element={<WorkingHoursScreen />} />
+            <Route path="appointments" element={<AppointmentsScreen />} />
           </Route>
           <Route path="*" element={<NotFound insidePanel />} />
         </Route>

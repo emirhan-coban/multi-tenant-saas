@@ -76,7 +76,7 @@ for (const role of ['OWNER', 'MANAGER', 'STAFF'] as const) {
     vi.mocked(api.get).mockResolvedValue({ data: { userId: 'user', tenantId: 'active', role } });
     mount();
     const nav = await screen.findByRole('navigation', { name: 'Ana menü' });
-    expect(within(nav).getAllByRole('link')).toHaveLength(role === 'STAFF' ? 2 : 5);
+    expect(within(nav).getAllByRole('link')).toHaveLength(role === 'STAFF' ? 2 : 6);
     expect(within(nav).getByRole('link', { name: 'Genel Bakış' }).getAttribute('aria-current')).toBe('page');
     if (role === 'STAFF') expect(within(nav).queryByRole('link', { name: 'Hizmetler' })).toBeNull();
     fireEvent.click(within(nav).getByRole('link', { name: 'Hesabım' }));
@@ -86,7 +86,7 @@ for (const role of ['OWNER', 'MANAGER', 'STAFF'] as const) {
     expect(document.activeElement?.id).toBe('panel-content');
   });
 }
-for (const path of ['services', 'staff', 'working-hours']) {
+for (const path of ['services', 'staff', 'working-hours', 'appointments']) {
   test(`STAFF cannot open /app/${path} directly`, async () => {
     vi.mocked(restoreSession).mockResolvedValue(authData);
     vi.mocked(api.get).mockResolvedValue({ data: { userId: 'user', tenantId: 'active', role: 'STAFF' } });

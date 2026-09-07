@@ -6,4 +6,5 @@ import java.util.UUID;
 
 public interface HizmetRepository extends JpaRepository<Hizmet, UUID> {
     List<Hizmet> findByDeletedAtIsNull();
+    List<Hizmet> findByTenantIdAndDeletedAtIsNull(UUID tenantId);
 }

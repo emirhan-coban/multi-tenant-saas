@@ -44,6 +44,7 @@ Masaüstünde sol menü, 760px ve altında açılır menü kullanılır. Menü v
 | `/app/services` | Hizmetler | OWNER, MANAGER |
 | `/app/staff` | Personel | OWNER, MANAGER |
 | `/app/working-hours` | Çalışma Saatleri | OWNER, MANAGER |
+| `/app/appointments` | Randevular | OWNER, MANAGER |
 | `/app/account` | Hesabım | OWNER, MANAGER, STAFF |
 
 Hesabım mevcut üyelikleri ve aktif çalışma alanını görüntüler.
@@ -76,13 +77,29 @@ Geçici şifre yalnızca sonuç penceresinin yerel state'inde tutulur; Query/Mut
 - Personel satırı üzerinde kilit, aynı personelin POST/PUT işlemlerini sıraya alır. Tekrar PUT, eski haftayı değiştirir ve kayıt çoğaltmaz. Eski POST endpoint'i, kayıtlı bir güne ikinci aralık eklemeyi reddeder (`DAY_ALREADY_EXISTS`).
 - Önceden aynı güne birden fazla aralık girilmişse web ekranı sessizce aralık silmek yerine düzenlemeyi engeller. Eski veriler otomatik dönüştürülmez; haftalık PUT ile açıkça gönderilen plan eski aralıkları değiştirir.
 
-PostgreSQL entegrasyon testleri yalnızca **ayrı, geçici bir test veritabanında** çalıştırılmalıdır. Test, transaction geri almayı doğrulamak için geçici bir tablo kısıtı ekler; kendi test kayıtlarını oluşturur. Kullanılabilir bir PostgreSQL veritabanı için:
+PostgreSQL entegrasyon testleri Testcontainers ile otomatik oluşturulan ayrı, geçici bir veritabanında çalışır. Docker açık ve Java 21 kurulu olmalıdır:
 
 ```bash
-HOURS_INTEGRATION=true ./backend/mvnw -f backend/pom.xml \
-  -Dspring.datasource.url=jdbc:postgresql://127.0.0.1:55437/hours_qa \
-  -Dspring.datasource.username=hours_qa \
-  -Dspring.datasource.password=hours_qa test
+./backend/mvnw -f backend/pom.xml test
 ```
 
-Test veritabanı hesabının tablo oluşturma/değiştirme yetkisi olmalıdır. Entegrasyon senaryoları tekrar kayıt, tüm günleri kapatma, bozuk hafta/saat doğrulaması, veritabanı hatasında rollback, eşzamanlı kayıt, tenant ayrımı ve HTTP rol kontrolünü kapsar. `HOURS_INTEGRATION` verilmezse yeni PostgreSQL entegrasyon sınıfı atlanır; mevcut `contextLoads` testi kendi datasource ayarlarını kullanmaya devam eder.
+Entegrasyon senaryoları tekrar kayıt, tüm günleri kapatma, bozuk hafta/saat doğrulaması, veritabanı hatasında rollback, eşzamanlı kayıt, tenant ayrımı ve HTTP rol kontrolünü kapsar. `HOURS_INTEGRATION` artık gerekmez; `contextLoads` dahil tüm Spring testleri geçici DB kullanır.
+
+## Faz 3 — Randevular
+
+### Takvim arayüzü
+
+- Gün görünümünde personel sütunları, hafta görünümünde Pazartesi–Pazar sütunları ve renkli randevu blokları bulunur. Çizelge 09:00–18:00 ile başlar; dışarıdaki randevular için genişler.
+- Üstte Hepsi/personel sekmeleri, önceki/sonraki dönem ve Bugün kontrolleri vardır.
+- Yeni randevu penceresi hizmet → personel → tarih → saat butonları sırasını izler. Boş günde sonraki 30 günü tarayan, durdurulabilir en yakın gün araması vardır.
+- Randevuya tıklayınca müşteri, telefon, hizmet, personel, not ve durum bilgileri açılır. Not düzenleme, tamamlandı/gelmedi/iptal ve taşıma desteklenir.
+- Masaüstünde bloğu aynı personelin başka saatine veya hafta görünümünde başka güne sürükleyin. Backend'in sunduğu en yakın müsait saat onay penceresinde gösterilir. Personel değiştirme sürükleme ile yapılmaz. Mobil/klavye için detay penceresindeki Taşı aynı işlemi sağlar.
+- TanStack Query mutation, randevuyu hemen soluk/pending blok olarak takvime ekler. Başarıda sunucu kaydıyla değiştirir; hatada yalnızca ilgili değişikliği geri alır. Aynı gövdeyle ağ hatası tekrarı aynı Idempotency-Key'i korur.
+- SLOT_UNAVAILABLE / 409 açık bir saat doldu mesajı gösterir; müsaitlik ve takvim otomatik yenilenir. Eski sürüm çakışmaları ayrı mesajla gösterilir.
+- Takvim tarayıcının saat dilimini, müsaitlik butonları işletmenin saat dilimini açıkça gösterir.
+
+Son frontend doğrulaması: 53 test geçti (15 takvim/randevu testi dahil), production build başarılı. Ek takvim veya sürükleme kütüphanesi kullanılmadı.
+
+`/app/appointments` sayfası müsait saat seçimi, oluşturma, günlük liste/personel filtresi, taşıma ve durum değişiklikleri sunar. PostgreSQL exclusion constraint tampon dahil çakışmayı engeller. Idempotency-Key yinelenen oluşturmayı, @Version eşzamanlı düzenlemede veri kaybını önler.
+
+API örnekleri, tasarım kararları, saat dilimi sözleşmesi, kapsam sınırları ve Java kurmadan Docker ile test komutları: [Faz 3 teknik notları](docs/phase-3-appointments.md).

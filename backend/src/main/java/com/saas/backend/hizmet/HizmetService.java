@@ -39,7 +39,7 @@ public class HizmetService {
 
     @Transactional(readOnly = true)
     public List<HizmetDtos.HizmetResponse> listele() {
-        return hizmetRepository.findByDeletedAtIsNull()
+        return hizmetRepository.findByTenantIdAndDeletedAtIsNull(com.saas.backend.config.TenantContext.get())
             .stream()
             .map(this::toResponse)
             .toList();
