@@ -13,6 +13,11 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String,String>> malformedBody(Exception ex) {
+        return ResponseEntity.badRequest().body(Map.of("code","VALIDATION_ERROR","message","İstek gövdesi geçersiz. Alanları kontrol edin."));
+    }
+
     @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<Map<String, String>> optimistic(Exception ex) {
         return ResponseEntity.status(409).body(Map.of("code","STALE_VERSION",
@@ -35,13 +40,14 @@ public class GlobalExceptionHandler {
             case "EMAIL_EXISTS", "SLOT_UNAVAILABLE", "STALE_VERSION", "IDEMPOTENCY_CONFLICT", "INVALID_TRANSITION" -> HttpStatus.CONFLICT;
             case "NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "INVALID_CREDENTIALS" -> HttpStatus.UNAUTHORIZED;
-            case "NO_TENANT" -> HttpStatus.FORBIDDEN;
+            case "NO_TENANT", "QUOTA_EXCEEDED" -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.BAD_REQUEST;
         };
 
         Map<String, Object> body = new HashMap<>();
         body.put("code", ex.getCode());
         body.put("message", ex.getMessage());
+        body.put("details", ex.getDetails());
 
         return ResponseEntity.status(status).body(body);
     }

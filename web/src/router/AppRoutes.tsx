@@ -9,6 +9,7 @@ import { PanelLayout } from '../layouts/PanelLayout';
 import { AccountScreen } from '../screens/AccountScreen';
 import { WorkingHoursScreen } from '../screens/WorkingHoursScreen';
 import { AppointmentsScreen } from '../screens/AppointmentsScreen';
+import { AuditScreen, ReportsScreen, PlanScreen, NotificationsScreen } from '../screens/OperationsScreens';
 import { canAccess, managementRoles, memberRoles } from './navigation';
 import type { Role } from '../api/types';
 import { useCurrentUser } from '../query/management';
@@ -71,11 +72,15 @@ export function AppRoutes() {
         <Route element={<PanelLayout />}>
           <Route index element={<AppScreen />} />
           <Route path="account" element={<AccountScreen />} />
+          <Route path="notifications" element={<NotificationsScreen />} />
           <Route element={<RequireRole allowed={managementRoles} />}>
             <Route path="services" element={<ServicesScreen />} />
             <Route path="staff" element={<StaffScreen />} />
             <Route path="working-hours" element={<WorkingHoursScreen />} />
             <Route path="appointments" element={<AppointmentsScreen />} />
+            <Route path="reports" element={<ReportsScreen />} />
+            <Route path="audit-log" element={<AuditScreen />} />
+            <Route path="plan" element={<PlanScreen />} />
           </Route>
           <Route path="*" element={<NotFound insidePanel />} />
         </Route>

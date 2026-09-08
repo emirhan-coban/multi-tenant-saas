@@ -1,6 +1,10 @@
 .env
+.env.mail
 
 # Web dependencies and build output
 web/node_modules/
 web/dist/
 *.tsbuildinfo
+.idea/workspace.xml
+.DS_Store
+**/.DS_Store

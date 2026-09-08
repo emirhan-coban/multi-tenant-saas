@@ -15,6 +15,8 @@ public class Appointment {
     private UUID customerId;
     private String customerName;
     private String customerPhone;
+    private String customerEmail;
+    @Column(nullable=false) private boolean emailNotifications;
     @Column(nullable=false) private Instant startsAt;
     @Column(nullable=false) private Instant endsAt;
     @Column(nullable=false) private Instant busyUntil;
@@ -22,8 +24,8 @@ public class Appointment {
     @Column(nullable=false) private int bufferMin;
     @Enumerated(EnumType.STRING) @Column(nullable=false) private Status status = Status.CONFIRMED;
     private String notes;
+    @Column(precision=10, scale=2) private java.math.BigDecimal priceAmount;
     @Column(nullable=false, updatable=false) private Instant createdAt = Instant.now();
     @Version private Integer version;
     public enum Status { CONFIRMED, COMPLETED, CANCELLED, NO_SHOW }
 }
-

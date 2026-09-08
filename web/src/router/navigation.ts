@@ -11,6 +11,10 @@ export const navigation = [
   { path: '/app/working-hours', label: 'Çalışma Saatleri', roles: managementRoles, mark: '04' },
   { path: '/app/appointments', label: 'Randevular', roles: managementRoles, mark: '06' },
   { path: '/app/account', label: 'Hesabım', roles: memberRoles, mark: '05' },
+  { path: '/app/reports', label: 'Raporlar', roles: managementRoles, mark: '07' },
+  { path: '/app/audit-log', label: 'İşlem Geçmişi', roles: managementRoles, mark: '08' },
+  { path: '/app/plan', label: 'Plan ve Kullanım', roles: managementRoles, mark: '09' },
+  { path: '/app/notifications', label: 'Bildirimler', roles: memberRoles, mark: '10' },
 ] as const;
 
 export function canAccess(role: string, allowed: readonly Role[]) {

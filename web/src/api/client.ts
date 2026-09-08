@@ -72,6 +72,13 @@ api.interceptors.request.use((request: InternalAxiosRequestConfig) => {
 }, undefined, { synchronous: true });
 
 api.interceptors.response.use(response => response, async (error: AxiosError) => {
+  const body = error.response?.data as { code?: string; message?: string } | undefined;
+  if (body?.code === 'QUOTA_EXCEEDED' || error.response?.status === 429) {
+    window.dispatchEvent(new CustomEvent('saas:api-error', { detail: {
+      quota: body?.code === 'QUOTA_EXCEEDED',
+      message: body?.code === 'QUOTA_EXCEEDED' ? body.message : `Çok fazla istek gönderdiniz. ${error.response?.headers?.['retry-after'] ?? 60} saniye bekleyip tekrar deneyin.`,
+    } }));
+  }
   const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
   if (error.response?.status !== 401 || !original || original._retry || original.signal?.aborted) throw error;
   original._retry = true;

@@ -58,6 +58,9 @@ export function AppointmentBooking({initial,staff,services,onClose,onSave,onDate
       </section>}
       <label className="field">Müşteri adı<input maxLength={200} value={draft.customerName} disabled={!!draft.editing} onChange={e=>setDraft(d=>({...d,customerName:e.target.value}))}/></label>
       <label className="field">Telefon<input type="tel" maxLength={40} value={draft.customerPhone} disabled={!!draft.editing} onChange={e=>setDraft(d=>({...d,customerPhone:e.target.value}))}/></label>
+      <label className="field">Müşteri e-posta adresi<input type="email" maxLength={254} required={!!draft.emailNotifications} value={draft.customerEmail??''} disabled={!!draft.editing} onChange={e=>setDraft(d=>({...d,customerEmail:e.target.value}))}/></label>
+      <label className="notification-toggle"><input type="checkbox" checked={!!draft.emailNotifications} disabled={!!draft.editing} onChange={e=>setDraft(d=>({...d,emailNotifications:e.target.checked}))}/><span>Müşteriye randevu e-postaları gönder</span></label>
+      <p className="muted">Onay, saat değişikliği, iptal ve 24 saat önce hatırlatma. 24 saatten yakın randevularda yalnızca onay gönderilir. Gönderim için Gmail ayarlarının açık olması gerekir; test modunda yalnızca gönderici Gmail adresine gönderilir.</p>
       <label className="field">Not<textarea maxLength={500} value={draft.notes} onChange={e=>setDraft(d=>({...d,notes:e.target.value}))}/></label>
     </fieldset>
     {searching&&<p role="status">En yakın müsait gün aranıyor… <Button type="button" variant="quiet" onClick={()=>{controller.current?.abort();setSearching(false);}}>Aramayı durdur</Button></p>}

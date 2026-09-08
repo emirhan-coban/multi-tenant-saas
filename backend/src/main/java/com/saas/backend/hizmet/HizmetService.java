@@ -15,8 +15,10 @@ public class HizmetService {
 
     private final HizmetRepository hizmetRepository;
     private final TenantRepository tenantRepository;
+    private final com.saas.backend.operations.OperationsService operations;
 
-    public HizmetService(HizmetRepository hizmetRepository, TenantRepository tenantRepository) {
+    public HizmetService(HizmetRepository hizmetRepository, TenantRepository tenantRepository, com.saas.backend.operations.OperationsService operations) {
+        this.operations=operations;
         this.hizmetRepository = hizmetRepository;
         this.tenantRepository = tenantRepository;
     }
@@ -48,7 +50,11 @@ public class HizmetService {
     @Transactional
     public HizmetDtos.HizmetResponse guncelle(UUID id, HizmetDtos.HizmetGuncelleRequest request) {
         Hizmet hizmet = hizmetRepository.findById(id)
+            .filter(h -> h.getTenant().getId().equals(com.saas.backend.config.TenantContext.get()) && h.getDeletedAt()==null)
             .orElseThrow(() -> new com.saas.backend.auth.ApiException("NOT_FOUND", "Hizmet bulunamadı"));
+
+        if(hizmet.getPrice().compareTo(request.price())!=0) operations.audit(actor(),"SERVICE_PRICE_CHANGED","service",id,
+            java.util.Map.of("before",hizmet.getPrice(),"after",request.price()));
 
         hizmet.setName(request.name());
         hizmet.setDurationMin(request.durationMin());
@@ -61,9 +67,15 @@ public class HizmetService {
     @Transactional
     public void sil(UUID id) {
         Hizmet hizmet = hizmetRepository.findById(id)
+            .filter(h -> h.getTenant().getId().equals(com.saas.backend.config.TenantContext.get()) && h.getDeletedAt()==null)
             .orElseThrow(() -> new com.saas.backend.auth.ApiException("NOT_FOUND", "Hizmet bulunamadı"));
 
         hizmet.setDeletedAt(Instant.now());
+        operations.audit(actor(),"SERVICE_DELETED","service",id,java.util.Map.of());
+    }
+
+    private AuthenticatedUser actor() {
+        return (AuthenticatedUser)org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
     private HizmetDtos.HizmetResponse toResponse(Hizmet hizmet) {

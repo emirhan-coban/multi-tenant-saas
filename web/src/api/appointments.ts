@@ -3,8 +3,9 @@ export type AppointmentStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SH
 export type Appointment = {
   id: string; staffId: string; serviceId: string; startsAt: string; endsAt: string; busyUntil: string;
   status: AppointmentStatus; customerName: string | null; customerPhone: string | null; notes: string | null; version: number;
+  customerEmail?: string | null; emailNotifications?: boolean;
 };
-export type CreateAppointment = { staffId: string; serviceId: string; startsAt: string; customerName: string; customerPhone: string; notes: string };
+export type CreateAppointment = { staffId: string; serviceId: string; startsAt: string; customerName: string; customerPhone: string; notes: string; customerEmail?: string; emailNotifications?: boolean };
 export type Availability = { timezone: string; date: string; slots: { startsAt: string; endsAt: string }[] };
 export const listAppointments = async (from: string, to: string, staffId: string, signal?: AbortSignal) =>
   (await api.get<Appointment[]>('/api/appointments', { params: { from, to, staffId: staffId || undefined }, signal })).data;

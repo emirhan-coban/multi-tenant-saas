@@ -53,6 +53,25 @@ test('slot button sends UTC and UUID header key',async()=>{
  await screen.findByText('Randevu oluşturuldu.');
  expect(appointments.createAppointment).toHaveBeenCalledWith(expect.objectContaining({startsAt:first,customerName:'Ada'}),expect.stringMatching(/^[0-9a-f-]{36}$/));
 });
+test('customer email requires explicit opt-in and is sent with the booking',async()=>{
+ mount();await choose();
+ const checkbox=screen.getByRole('checkbox',{name:'Müşteriye randevu e-postaları gönder'});
+ expect((checkbox as HTMLInputElement).checked).toBe(false);
+ fireEvent.change(screen.getByLabelText('Müşteri e-posta adresi'),{target:{value:'customer@example.test'}});
+ fireEvent.click(checkbox);
+ expect((screen.getByLabelText('Müşteri e-posta adresi') as HTMLInputElement).required).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'Randevu oluştur'}));
+ await screen.findByText('Randevu oluşturuldu.');
+ expect(appointments.createAppointment).toHaveBeenCalledWith(expect.objectContaining({customerEmail:'customer@example.test',emailNotifications:true}),expect.any(String));
+});
+test('email is optional when notifications are not selected',async()=>{
+ mount();await choose();
+ expect((screen.getByLabelText('Müşteri e-posta adresi') as HTMLInputElement).required).toBe(false);
+ fireEvent.click(screen.getByRole('button',{name:'Randevu oluştur'}));
+ await screen.findByText('Randevu oluşturuldu.');
+ const input=vi.mocked(appointments.createAppointment).mock.calls[0][0];
+ expect(input.emailNotifications).not.toBe(true);
+});
 test('pending calendar block appears immediately and rolls back on network failure',async()=>{
  let reject!:(e:Error)=>void;
  vi.mocked(appointments.createAppointment).mockReturnValue(new Promise((_,r)=>{reject=r;}));
