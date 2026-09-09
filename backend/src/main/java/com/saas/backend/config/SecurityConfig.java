@@ -28,13 +28,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, com.saas.backend.operations.TenantRateLimiter limiter, com.saas.backend.operations.OperationsService operations) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(request -> {
                     var config = new CorsConfiguration();
                     config.setAllowedOriginPatterns(List.of("*"));
                     config.setAllowedMethods(List.of("*"));
                     config.setAllowedHeaders(List.of("*"));
+                    config.setExposedHeaders(List.of("Retry-After","X-Trace-Id","X-RateLimit-Remaining"));
                     return config;
                 }))
                 .csrf(csrf -> csrf.disable())
@@ -43,7 +44,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/api/health").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new com.saas.backend.operations.RateLimitFilter(limiter,operations), JwtAuthFilter.class);
         return http.build();
     }
 }

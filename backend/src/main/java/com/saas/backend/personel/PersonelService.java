@@ -25,23 +25,27 @@ public class PersonelService {
     private final TenantRepository tenantRepository;
     private final MembershipRepository membershipRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.saas.backend.operations.OperationsService operations;
 
     public PersonelService(
             PersonelRepository personelRepository,
             UserRepository userRepository,
             TenantRepository tenantRepository,
             MembershipRepository membershipRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            com.saas.backend.operations.OperationsService operations
     ) {
         this.personelRepository = personelRepository;
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.membershipRepository = membershipRepository;
         this.passwordEncoder = passwordEncoder;
+        this.operations = operations;
     }
 
     @Transactional
     public PersonelDtos.DavetSonucu davetEt(AuthenticatedUser currentUser, PersonelDtos.DavetEtRequest request) {
+        operations.checkQuota(currentUser,"staff");
         Tenant tenant = tenantRepository.getReferenceById(currentUser.tenantId());
 
         User user = userRepository.findByEmail(request.email()).orElse(null);
@@ -67,6 +71,7 @@ public class PersonelService {
         personel.setUser(user);
         personel.setDisplayName(request.displayName());
         personelRepository.save(personel);
+        operations.audit(currentUser,"STAFF_INVITED","staff",personel.getId(),java.util.Map.of());
 
         return new PersonelDtos.DavetSonucu(personel.getId(), user.getEmail(), geciciSifre);
     }

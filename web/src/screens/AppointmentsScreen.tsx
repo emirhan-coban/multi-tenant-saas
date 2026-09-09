@@ -39,8 +39,8 @@ export function AppointmentsScreen() {
   const mutation=useMutation({
     mutationFn:async(op:Operation)=>{
       if(op.type==='create'){
-        const {staffId,serviceId,startsAt,customerName,customerPhone,notes}=op.draft;
-        return api.createAppointment({staffId,serviceId,startsAt,customerName,customerPhone,notes},op.key);
+        const {staffId,serviceId,startsAt,customerName,customerPhone,notes,customerEmail,emailNotifications}=op.draft;
+        return api.createAppointment({staffId,serviceId,startsAt,customerName,customerPhone,notes,...(customerEmail?.trim()?{customerEmail:customerEmail.trim(),emailNotifications:!!emailNotifications}:{})},op.key);
       }
       return api.patchAppointment(op.row.id,op.patch);
     },
@@ -104,15 +104,15 @@ export function AppointmentsScreen() {
     setFilter(d.staffId);
     if(d.editing){void run({type:'patch',row:d.editing,patch:{version:d.editing.version,startsAt:d.startsAt,notes:d.notes}});return;}
     try{
-      const {staffId,serviceId,startsAt,customerName,customerPhone,notes}=d;
-      const id=requestKey(storageKey,JSON.stringify({staffId,serviceId,startsAt,customerName,customerPhone,notes}));
+      const {staffId,serviceId,startsAt,customerName,customerPhone,notes,customerEmail,emailNotifications}=d;
+      const id=requestKey(storageKey,JSON.stringify({staffId,serviceId,startsAt,customerName,customerPhone,notes,...(customerEmail?.trim()?{customerEmail:customerEmail.trim(),emailNotifications:!!emailNotifications}:{})}));
       void run({type:'create',draft:d,key:id});
     }catch(e){setError(errorMessage(e,'Tarayıcı kayıt anahtarını saklayamadı. Depolama iznini kontrol edin.'));}
   }
   function open(row:api.Appointment){setDetail(row);setDetailNotes(row.notes??'');setError('');}
   function move(row:api.Appointment){
     setDetail(null);setError('');
-    setDraft({staffId:row.staffId,serviceId:row.serviceId,startsAt:'',customerName:row.customerName??'',customerPhone:row.customerPhone??'',notes:row.notes??'',date:localDate(new Date(row.startsAt)),editing:row});
+    setDraft({staffId:row.staffId,serviceId:row.serviceId,startsAt:'',customerName:row.customerName??'',customerPhone:row.customerPhone??'',customerEmail:row.customerEmail??'',emailNotifications:row.emailNotifications,notes:row.notes??'',date:localDate(new Date(row.startsAt)),editing:row});
   }
   async function drop(row:api.Appointment,target:Date){
     if(latch.current||busy)return;
@@ -163,6 +163,7 @@ export function AppointmentsScreen() {
     {detail&&currentDetail&&<Modal title="Randevu detayı" onClose={()=>setDetail(null)} busy={busy}>
       <div className="appointment-detail"><span className={'detail-status event-'+currentDetail.status.toLowerCase()}>{statusLabels[currentDetail.status]}</span>
         <h3>{currentDetail.customerName||'İsimsiz müşteri'}</h3><p>{currentDetail.customerPhone||'Telefon belirtilmedi'}</p>
+        <p>{currentDetail.customerEmail||'E-posta belirtilmedi'} · {currentDetail.emailNotifications?'Müşteri e-posta bildirimi açık':'Müşteri e-posta bildirimi kapalı'}</p>
         <dl><dt>Hizmet</dt><dd>{services.data?.find(s=>s.id===currentDetail.serviceId)?.name??'Hizmet'}</dd><dt>Personel</dt><dd>{staff.data?.find(s=>s.id===currentDetail.staffId)?.displayName??'Personel'}</dd>
           <dt>Tarih ve saat</dt><dd>{new Date(currentDetail.startsAt).toLocaleDateString('tr-TR')} · {clock(currentDetail.startsAt)}–{clock(currentDetail.endsAt)}</dd><dt>Tampon bitişi</dt><dd>{clock(currentDetail.busyUntil)}</dd></dl>
         <label className="field">Randevu notu<textarea maxLength={500} disabled={busy||currentDetail.status!=='CONFIRMED'||stale} value={detailNotes} onChange={e=>setDetailNotes(e.target.value)}/></label>

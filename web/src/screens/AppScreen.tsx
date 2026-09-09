@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { UsageCard } from './OperationsScreens';
 import { Card } from '../components/ui';
 import { useAuth } from '../store/auth';
 import { useTenant } from '../store/tenant';
@@ -15,5 +16,6 @@ export function AppScreen() {
       <Card><p className="eyebrow">ÇALIŞMA ALANINDAKİ ROLÜNÜZ</p><h2>{roleLabels[role]}</h2><p className="muted">Menünüz, bu işletmedeki yetkilerinize göre düzenlenir.</p></Card>
       <Card><p className="eyebrow">ÜYELİKLERİNİZ</p><h2>{session?.memberships.length}</h2><p className="muted">Hesabınıza bağlı çalışma alanı</p><Link className="text-link" to="/app/account">Hesap bilgilerini görüntüle <span aria-hidden="true">→</span></Link></Card>
     </div>
+    {canAccess(role, managementRoles) && <div className="operations-section"><UsageCard /></div>}
   </>;
 }

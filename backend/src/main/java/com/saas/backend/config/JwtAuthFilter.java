@@ -56,6 +56,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(authToken);
             TenantContext.set(tenantId);   // ← YENİ
+            org.slf4j.MDC.put("tenantId",tenantId.toString());
 
         } catch (JwtException | IllegalArgumentException ex) {
             // Token bozuk/süresi dolmuş — sessizce geç.

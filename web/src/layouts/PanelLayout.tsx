@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { Button } from '../components/ui';
+import { OperationalFeedback } from '../screens/OperationsScreens';
 import { useAuth } from '../store/auth';
 import { useTenant } from '../store/tenant';
 import { canAccess, navigation, roleLabels } from '../router/navigation';
@@ -23,6 +24,7 @@ export function PanelLayout() {
     if (event.key === 'Escape' && menuOpen) { setMenuOpen(false); toggle.current?.focus(); }
   }}>
     <a className="skip-link" href="#panel-content">İçeriğe geç</a>
+    <OperationalFeedback />
     <aside className="panel-sidebar">
       <div className="panel-brand"><span className="brand-symbol" aria-hidden="true">T</span><span>TENANT OS<small>Çalışma alanınız</small></span></div>
       <button ref={toggle} className="button button-quiet menu-toggle" aria-expanded={menuOpen} aria-controls="panel-menu" onClick={() => setMenuOpen(open => !open)}>{menuOpen ? 'Menüyü kapat' : 'Menüyü aç'}</button>

@@ -1,5 +1,24 @@
 # Multi-tenant SaaS
 
+## Docker ile tüm uygulamayı başlatma
+
+Mevcut `.env` dosyanızı koruyun. İlk kurulumda `.env.example` değerleriyle `.env` oluşturun.
+
+```bash
+docker compose --profile app up -d
+```
+
+Frontend: http://localhost:5173/app — Backend health: http://localhost:8081/api/health.
+Bu geliştirme profili Postgres, Redis, backend ve frontend'i birlikte çalıştırır; yerel Java/Node gerektirmez.
+
+## Faz 4 — Operasyon ve raporlama
+
+Gmail ile gerçek müşteri e-postası desteği eklendi (varsayılan kapalı, güvenli test modu). `.env.mail` yerel ayarlarını ve test adımlarını [Gmail kurulum notlarında](docs/gmail-email.md) bulabilirsiniz. Müşteri e-postaları, önceki konsol hatırlatmalarından ayrı çalışır.
+
+FREE/PRO kotaları, Redis/Bucket4j istek sınırlaması, immutable audit, JSON loglar, ShedLock korumalı transactional outbox, bildirim tercihleri, ciro/doluluk raporları ve kullanım ekranları eklendi. Bildirim konsola gider; plan yükseltme demo olup ödeme almaz.
+
+API sözleşmeleri, concurrency kararları, rapor tanımları, test komutları ve üretim sınırları: [Faz 4 teknik notları](docs/phase-4-operations.md).
+
 ## Web uygulaması
 
 PostgreSQL'i başlatıp backend'i çalıştırdıktan sonra:

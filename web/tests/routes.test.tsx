@@ -73,10 +73,12 @@ test('unknown URLs show a recoverable 404', async () => {
 for (const role of ['OWNER', 'MANAGER', 'STAFF'] as const) {
   test(`${role} sees only the permitted navigation items`, async () => {
     vi.mocked(restoreSession).mockResolvedValue(authData);
-    vi.mocked(api.get).mockResolvedValue({ data: { userId: 'user', tenantId: 'active', role } });
+    vi.mocked(api.get).mockImplementation(async path => ({ data: path === '/api/usage'
+      ? { plan: 'FREE', staff: { used: 1, limit: 2 }, appointments: { used: 0, limit: 100 }, resetsAt: '2030-02-01T00:00:00Z', timezone: 'Europe/Istanbul', requestsPerMinute: 60 }
+      : { userId: 'user', tenantId: 'active', role } }));
     mount();
     const nav = await screen.findByRole('navigation', { name: 'Ana menü' });
-    expect(within(nav).getAllByRole('link')).toHaveLength(role === 'STAFF' ? 2 : 6);
+    expect(within(nav).getAllByRole('link')).toHaveLength(role === 'STAFF' ? 3 : 10);
     expect(within(nav).getByRole('link', { name: 'Genel Bakış' }).getAttribute('aria-current')).toBe('page');
     if (role === 'STAFF') expect(within(nav).queryByRole('link', { name: 'Hizmetler' })).toBeNull();
     fireEvent.click(within(nav).getByRole('link', { name: 'Hesabım' }));
@@ -86,7 +88,7 @@ for (const role of ['OWNER', 'MANAGER', 'STAFF'] as const) {
     expect(document.activeElement?.id).toBe('panel-content');
   });
 }
-for (const path of ['services', 'staff', 'working-hours', 'appointments']) {
+for (const path of ['services', 'staff', 'working-hours', 'appointments', 'reports', 'audit-log', 'plan']) {
   test(`STAFF cannot open /app/${path} directly`, async () => {
     vi.mocked(restoreSession).mockResolvedValue(authData);
     vi.mocked(api.get).mockResolvedValue({ data: { userId: 'user', tenantId: 'active', role: 'STAFF' } });

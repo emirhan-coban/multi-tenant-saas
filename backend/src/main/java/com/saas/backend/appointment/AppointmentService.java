@@ -22,8 +22,12 @@ public class AppointmentService {
     private final AppointmentRepository appointments;
     private final EntityManager em;
     private final ObjectMapper json;
+    private final com.saas.backend.operations.OperationsService operations;
+    private final com.saas.backend.operations.CustomerEmailService customerEmail;
     private final MusaitlikHesaplayici calculator = new MusaitlikHesaplayici();
-    public AppointmentService(AppointmentRepository appointments, EntityManager em, ObjectMapper json) {
+    public AppointmentService(AppointmentRepository appointments, EntityManager em, ObjectMapper json, com.saas.backend.operations.OperationsService operations, com.saas.backend.operations.CustomerEmailService customerEmail) {
+        this.customerEmail=customerEmail;
+        this.operations=operations;
         this.appointments=appointments; this.em=em; this.json=json;
     }
 
@@ -39,6 +43,9 @@ public class AppointmentService {
         if (key == null || !key.matches("[A-Za-z0-9._:-]{1,128}"))
             throw new ApiException("INVALID_KEY","Idempotency-Key 1–128 harf, rakam veya . _ : - içermeli");
         String payload=json.writeValueAsString(request);
+        // Preserve idempotency hashes for pre-email clients that send the original six fields.
+        if(request.customerEmail()==null && !Boolean.TRUE.equals(request.emailNotifications()))
+            payload=json.writeValueAsString(new LegacyCreate(request.staffId(),request.serviceId(),request.startsAt(),request.customerName(),request.customerPhone(),request.notes()));
         String hash=hash(payload);
         // Lock lives until commit; a concurrent duplicate waits and then reads the committed response.
         em.createNativeQuery("select pg_advisory_xact_lock(hashtextextended(:scope,0))")
@@ -50,15 +57,23 @@ public class AppointmentService {
             if (!hash.equals(row[0])) throw new ApiException("IDEMPOTENCY_CONFLICT","Bu istek anahtarı farklı bilgilerle kullanılmış");
             return (String) row[1];
         }
+        operations.checkQuota(user,"appointments");
         var person=person(user,request.staffId());
         var service=service(user,request.serviceId());
         var a=new Appointment();
         a.setTenantId(user.tenantId()); a.setStaffId(person.getId()); a.setServiceId(service.getId());
         a.setDurationMin(service.getDurationMin()); a.setBufferMin(service.getBufferMin());
+        a.setPriceAmount(service.getPrice());
         validateSlot(user,a,request.startsAt());
         times(a,request.startsAt());
         a.setCustomerName(request.customerName()); a.setCustomerPhone(request.customerPhone()); a.setNotes(request.notes());
+        if(Boolean.TRUE.equals(request.emailNotifications()) && (request.customerEmail()==null || request.customerEmail().isBlank()))
+            throw new ApiException("INVALID_EMAIL","E-posta bildirimi için müşteri e-posta adresi gerekli");
+        a.setCustomerEmail(request.customerEmail()==null || request.customerEmail().isBlank()?null:request.customerEmail().trim());
+        a.setEmailNotifications(Boolean.TRUE.equals(request.emailNotifications()));
         appointments.saveAndFlush(a);
+        operations.appointmentCreated(user,a);
+        customerEmail.queue(user,a,"CUSTOMER_CONFIRMATION");
         String result=json.writeValueAsString(AppointmentDtos.response(a));
         em.createNativeQuery("insert into idempotency_keys(tenant_id,user_id,key,request_hash,response) values (:tenant,:user,:key,:hash,:response)")
             .setParameter("tenant",user.tenantId()).setParameter("user",user.userId()).setParameter("key",key)
@@ -89,6 +104,11 @@ public class AppointmentService {
         }
         if (request.notes()!=null) a.setNotes(request.notes());
         appointments.flush(); // @Version catches a second writer even if both read the same version.
+        operations.audit(user,request.startsAt()!=null?"APPOINTMENT_RESCHEDULED":"APPOINTMENT_"+a.getStatus(),"appointment",id,
+            Map.of("status",a.getStatus().name(),"startsAt",a.getStartsAt().toString(),"version",a.getVersion()));
+        if(request.startsAt()!=null) operations.enqueue(user,a);
+        if(request.startsAt()!=null) customerEmail.queue(user,a,"CUSTOMER_RESCHEDULED");
+        else if(a.getStatus()==Appointment.Status.CANCELLED) customerEmail.queue(user,a,"CUSTOMER_CANCELLED");
         return AppointmentDtos.response(a);
     }
 
@@ -180,4 +200,5 @@ public class AppointmentService {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException ex) { throw new IllegalStateException(ex); }
     }
+    private record LegacyCreate(UUID staffId,UUID serviceId,Instant startsAt,String customerName,String customerPhone,String notes) {}
 }
