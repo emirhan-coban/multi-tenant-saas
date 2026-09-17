@@ -197,7 +197,11 @@ class Phase8IntegrationTests extends PostgresTestBase {
 
     @Test
     void operationalMetricsRequireTheOpsTokenAndExposePhase8Meters() throws Exception {
-        assertEquals(200, get("/actuator/health", null).statusCode());
+        // Sağlık ucu dış servislere bağlı olmamalı. Posta göstergesi bilinçli olarak kapalı
+        // (application.yml): SMTP'ye ulaşılamayan bir ortamda uygulama çalışmaya devam eder,
+        // ama gösterge açık kalsaydı /actuator/health 503 döner ve konteyner yeniden başlatılırdı.
+        var health = get("/actuator/health", null);
+        assertEquals(200, health.statusCode(), "Sağlık ucu dış bağımlılık yüzünden düşmemeli: " + health.body());
         assertEquals(401, get("/actuator/metrics", null).statusCode());
         assertEquals(401, get("/actuator/metrics", ownerToken()).statusCode(), "Kullanıcı JWT'si metriklere erişemez");
         assertEquals(401, get("/actuator/metrics", "wrong-token").statusCode());

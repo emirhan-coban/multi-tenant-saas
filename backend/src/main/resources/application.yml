@@ -32,6 +32,15 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    mail:
+      # Posta sunucusuna erişim bir CANLILIK koşulu değildir: SMTP'ye ulaşılamasa da
+      # uygulama randevu almaya devam eder. Gösterge açıkken /actuator/health 503 döner;
+      # Dockerfile'daki HEALTHCHECK de bu uca baktığı için konteyner sağlıksız sayılıp
+      # sonsuz yeniden başlatma döngüsüne girerdi. (CI'da da tam bu oldu: GitHub
+      # runner'ları giden SMTP portlarını kapatıyor.)
+      # Posta durumu ayrı ve yetkili bir uçta görünür: GET /api/notifications/email-status
+      enabled: false
   metrics:
     distribution:
       percentiles-histogram:
