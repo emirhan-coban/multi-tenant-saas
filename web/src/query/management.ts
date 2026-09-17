@@ -250,3 +250,15 @@ export function useRollbackShopDesign() {
   return useMutation({ mutationFn: ({ targetVersion, revision }: { targetVersion: number; revision: number }) => management.rollbackShopDesign(targetVersion, revision),
     onSuccess: data => client.setQueryData(queryKeys.shopDesign(tenantId), data) });
 }
+
+export function useFeatureFlags() {
+  const { tenantId } = useTenant();
+  return useQuery({ queryKey: queryKeys.featureFlags(tenantId), queryFn: ({ signal }) => management.getFeatureFlags(signal) });
+}
+
+export function useUpdateFeatureFlag() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({ mutationFn: management.updateFeatureFlag,
+    onSuccess: data => client.setQueryData(queryKeys.featureFlags(tenantId), data) });
+}

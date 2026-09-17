@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { Button, Card, Input } from '../components/ui';
 import { errorMessage } from '../api/errors';
 import { useCustomerAuth } from '../store/customer-auth';
@@ -50,6 +51,8 @@ export function CustomerAuthScreen() {
         {error && <div className="form-error" role="alert">{error}</div>}
         <Button disabled={busy}>{busy ? 'Bekleyin...' : mode === 'login' ? 'Giriş yap' : 'Hesap oluştur'}</Button>
       </form>
+      {mode === 'login' && <p className="auth-secondary"><Link className="text-link" to="/musteri/sifremi-unuttum">Şifremi unuttum</Link></p>}
+      <p className="auth-legal muted">Hesap oluşturarak <Link className="text-link" to="/kvkk">aydınlatma metnini</Link> okuduğunuzu ve kişisel verilerinizin bu kapsamda işlenmesini kabul ettiğinizi beyan edersiniz.</p>
       <button type="button" className="switch" onClick={() => {
         setMode(current => current === 'login' ? 'register' : 'login');
         setError('');

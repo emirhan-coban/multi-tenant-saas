@@ -15,8 +15,12 @@ import java.util.UUID;
 @Service
 public class InAppNotificationService {
     private final EntityManager em;
+    private final com.saas.backend.push.PushNotificationService push;
 
-    public InAppNotificationService(EntityManager em) { this.em = em; }
+    public InAppNotificationService(EntityManager em, com.saas.backend.push.PushNotificationService push) {
+        this.em = em;
+        this.push = push;
+    }
 
     @Transactional
     public void notifyManagers(UUID tenantId, String eventType, String title, String body,
@@ -29,6 +33,7 @@ public class InAppNotificationService {
                 """).setParameter("tenant", tenantId).setParameter("event", eventType)
                 .setParameter("title", title).setParameter("body", body)
                 .setParameter("relatedType", relatedType).setParameter("relatedId", relatedId).executeUpdate();
+        push.queueForManagers(tenantId, eventType, title, body);
     }
 
     @Transactional
@@ -41,6 +46,7 @@ public class InAppNotificationService {
                 """).setParameter("tenant", tenantId).setParameter("recipient", accountId)
                 .setParameter("event", eventType).setParameter("title", title).setParameter("body", body)
                 .setParameter("relatedType", relatedType).setParameter("relatedId", relatedId).executeUpdate();
+        push.queueForCustomer(tenantId, accountId, eventType, title, body);
     }
 
     @Transactional(readOnly = true)

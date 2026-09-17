@@ -15,8 +15,14 @@ public class CustomerAuthService {
     private final CustomerAccountRepository accounts;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final com.saas.backend.auth.SessionRevocationService sessions;
+    private final com.saas.backend.account.KvkkService kvkk;
 
-    public CustomerAuthService(CustomerAccountRepository accounts, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public CustomerAuthService(CustomerAccountRepository accounts, PasswordEncoder passwordEncoder, JwtService jwtService,
+                               com.saas.backend.auth.SessionRevocationService sessions,
+                               com.saas.backend.account.KvkkService kvkk) {
+        this.sessions = sessions;
+        this.kvkk = kvkk;
         this.accounts = accounts;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -34,7 +40,10 @@ public class CustomerAuthService {
         account.setFullName(request.fullName().trim());
         account.setPhone(normalizePhone(request.phone()));
         try {
-            return response(accounts.saveAndFlush(account));
+            var saved = accounts.saveAndFlush(account);
+            // KVKK: kayıt anında yürürlükteki aydınlatma metninin sürümü işlenir.
+            kvkk.recordConsent(saved.getId(), true);
+            return response(saved);
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
             throw new ApiException("CUSTOMER_EMAIL_EXISTS", "Bu e-posta ile bir müşteri hesabı zaten var");
         }
@@ -54,11 +63,15 @@ public class CustomerAuthService {
     @Transactional(readOnly = true)
     public CustomerAuthDtos.Response refresh(String refreshToken) {
         final UUID customerId;
+        final io.jsonwebtoken.Claims claims;
         try {
-            customerId = UUID.fromString(jwtService.parseCustomerRefreshToken(refreshToken).getSubject());
+            claims = jwtService.parseCustomerRefreshToken(refreshToken);
+            customerId = UUID.fromString(claims.getSubject());
         } catch (JwtException | IllegalArgumentException ex) {
             throw new ApiException("INVALID_CUSTOMER_REFRESH_TOKEN", "Müşteri oturumu yenilenemedi");
         }
+        if (sessions.customerTokenRevoked(customerId, claims))
+            throw new ApiException("INVALID_CUSTOMER_REFRESH_TOKEN", "Müşteri oturumu yenilenemedi");
         var account = accounts.findById(customerId)
                 .filter(CustomerAccount::isActive)
                 .orElseThrow(() -> new ApiException("INVALID_CUSTOMER_REFRESH_TOKEN", "Müşteri oturumu yenilenemedi"));

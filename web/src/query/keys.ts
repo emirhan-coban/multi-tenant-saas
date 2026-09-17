@@ -13,5 +13,6 @@ export const queryKeys = {
     ['tenant', tenantId, 'booking-customers', customerId, 'trust-events'] as const,
   rescheduleRequests: (tenantId: string) => ['tenant', tenantId, 'reschedule-requests'] as const,
   bookingSettings: (tenantId: string) => ['tenant', tenantId, 'booking-settings'] as const,
+  featureFlags: (tenantId: string) => ['tenant', tenantId, 'feature-flags'] as const,
   shopDesign: (tenantId: string) => ['tenant', tenantId, 'shop-design'] as const,
 };

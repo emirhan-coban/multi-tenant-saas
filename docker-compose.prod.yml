@@ -1,0 +1,86 @@
+# Faz 9 — üretim benzeri dağıtım. Geliştirme dosyasından farkları:
+#   * kaynak kod bağlanmaz, imajlar derlenir;
+#   * uygulama süper kullanıcı olmayan saas_app rolüyle bağlanır;
+#   * sırlar .env.prod dosyasından gelir, varsayılanları yoktur;
+#   * yalnızca ön yüz dışarıya açılır, veritabanı ve Redis ağa çıkmaz.
+#
+# Çalıştırma:  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Gerekli değişkenler için ops/env.prod.example dosyasına bakın.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?zorunlu}
+      POSTGRES_USER: ${POSTGRES_USER:?zorunlu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?zorunlu}
+      APP_DB_USER: ${APP_DB_USER:?zorunlu}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?zorunlu}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./ops/db:/docker-entrypoint-initdb.d:ro
+    # Dışarıya port açılmaz; yalnızca compose ağından erişilir.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      DB_OWNER_USER: ${POSTGRES_USER}
+      DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_REDIS_URL: redis://redis:6379
+      # Güvenlik: aşağıdakiler eksikse uygulama açılmaz (SecurityStartupCheck).
+      APP_SECURITY_DEV_SECRETS_ALLOWED: "false"
+      APP_JWT_SECRET: ${APP_JWT_SECRET:?zorunlu}
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:?zorunlu}
+      APP_HSTS_MAX_AGE_SECONDS: ${APP_HSTS_MAX_AGE_SECONDS:-31536000}
+      APP_OPS_METRICS_TOKEN: ${APP_OPS_METRICS_TOKEN:?zorunlu}
+      APP_PUSH_VAPID_PUBLIC_KEY: ${APP_PUSH_VAPID_PUBLIC_KEY:?zorunlu}
+      APP_PUSH_VAPID_PRIVATE_KEY: ${APP_PUSH_VAPID_PRIVATE_KEY:?zorunlu}
+      APP_PUSH_SUBJECT: ${APP_PUSH_SUBJECT:?zorunlu}
+      APP_PUSH_ALLOW_EPHEMERAL_KEYS: "false"
+      APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:?zorunlu}
+      MAIL_ENABLED: ${MAIL_ENABLED:-true}
+      MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:-live}
+      GMAIL_ADDRESS: ${GMAIL_ADDRESS:-}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Ters vekil (frontend) üzerinden erişilir; doğrudan port açılmaz.
+
+  frontend:
+    build:
+      context: ./web
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  pgdata:

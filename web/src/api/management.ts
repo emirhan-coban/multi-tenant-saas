@@ -86,3 +86,17 @@ export async function publishShopDesign(revision: number) {
 export async function rollbackShopDesign(targetVersion: number, revision: number) {
   return (await api.post<ShopDesignState>('/api/shop-design/rollback', { targetVersion, revision })).data;
 }
+
+// Faz 9 — özellik bayrakları (yalnızca işletme sahibi).
+export interface FeatureFlagState {
+  key: string;
+  enabled: boolean;
+  globalEnabled: boolean;
+  tenantOverride: boolean | null;
+}
+export async function getFeatureFlags(signal?: AbortSignal) {
+  return (await api.get<FeatureFlagState[]>('/api/feature-flags', { signal })).data;
+}
+export async function updateFeatureFlag({ key, enabled, reason }: { key: string; enabled: boolean | null; reason: string }) {
+  return (await api.put<FeatureFlagState[]>(`/api/feature-flags/${encodeURIComponent(key)}`, { enabled, reason })).data;
+}

@@ -78,7 +78,9 @@ for (const role of ['OWNER', 'MANAGER', 'STAFF'] as const) {
       : { userId: 'user', tenantId: 'active', role } }));
     mount();
     const nav = await screen.findByRole('navigation', { name: 'Ana menü' });
-    expect(within(nav).getAllByRole('link')).toHaveLength(role === 'STAFF' ? 4 : 15);
+    // Faz 9: özellik anahtarları yalnızca işletme sahibine görünür.
+    expect(within(nav).getAllByRole('link')).toHaveLength(role === 'STAFF' ? 4 : role === 'OWNER' ? 16 : 15);
+    expect(within(nav).queryByRole('link', { name: 'Özellik Anahtarları' }) !== null).toBe(role === 'OWNER');
     expect(within(nav).getByRole('link', { name: 'Genel Bakış' }).getAttribute('aria-current')).toBe('page');
     if (role === 'STAFF') expect(within(nav).queryByRole('link', { name: 'Hizmetler' })).toBeNull();
     fireEvent.click(within(nav).getByRole('link', { name: 'Hesabım' }));

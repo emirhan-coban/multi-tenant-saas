@@ -8,6 +8,12 @@ import { errorMessage } from '../api/errors';
 import { useCustomerAuth } from '../store/customer-auth';
 import { Button } from '../components/ui';
 import { Modal } from '../components/Modal';
+import { NotificationPermissionCard } from '../components/NotificationPermissionCard';
+import { InstallPrompt } from '../components/InstallPrompt';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { logoutEverywhere } from '../api/pwa';
+import { disablePush } from '../pwa/push';
+import { CustomerPrivacyPanel } from '../components/CustomerPrivacyPanel';
 
 const statusText: Record<string, string> = {
   PENDING_APPROVAL: 'Onay bekliyor', AUTO_CONFIRMED: 'Kesinleşti', APPROVED: 'Kesinleşti',
@@ -39,6 +45,7 @@ export function CustomerAccountScreen() {
   const [moveLoading, setMoveLoading] = useState(false);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [message, setMessage] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
 
   async function load(signal?: AbortSignal) {
     setError('');
@@ -129,13 +136,28 @@ export function CustomerAccountScreen() {
     finally { setCreatingCode(null); }
   }
 
+  async function signOut(everywhere: boolean) {
+    setSigningOut(true);
+    // Paylaşılan cihazda bir sonraki kişi bu hesabın bildirimlerini almasın.
+    await disablePush('customer').catch(() => undefined);
+    if (everywhere) {
+      try { await logoutEverywhere('customer'); }
+      catch (reason) { setError(errorMessage(reason, 'Diğer cihazlardaki oturumlar kapatılamadı. Tekrar deneyin.')); setSigningOut(false); return; }
+    }
+    logout();
+  }
+
   if (!session) return null;
   const { customer } = session;
   return <main className="customer-account-shell">
     <header className="customer-account-header">
       <div><p className="eyebrow">MÜŞTERİ HESABI</p><h1>Merhaba, {customer.fullName}</h1><p>{customer.email}{customer.phone ? ` · ${customer.phone}` : ''}</p></div>
-      <Button variant="quiet" onClick={logout}>Çıkış yap</Button>
+      <div className="customer-account-exit">
+        <Button variant="quiet" disabled={signingOut} onClick={() => void signOut(false)}>Çıkış yap</Button>
+        <button type="button" className="text-button" disabled={signingOut} onClick={() => void signOut(true)}>Tüm cihazlardan çıkış</button>
+      </div>
     </header>
+    <OfflineBanner />
 
     <section className="customer-summary" aria-label="Randevu özeti">
       <div><strong>{data?.summary.upcoming ?? 0}</strong><span>Yaklaşan</span></div>
@@ -145,6 +167,10 @@ export function CustomerAccountScreen() {
       <div><strong>{data?.summary.noShow ?? 0}</strong><span>Gidilmeyen</span></div>
     </section>
     {message && <p className="success-notice" role="status">{message}</p>}
+    <div className="customer-pwa-row">
+      <NotificationPermissionCard audience="customer" />
+      <InstallPrompt context="customer" />
+    </div>
     {notifications.length > 0 && <section className="customer-notifications" aria-label="Bildirimler">
       <div><p className="eyebrow">GÜNCELLEMELER</p><h2>Bildirimler</h2></div>
       <div>{notifications.slice(0, 5).map(item => <button key={item.id} className={item.readAt ? 'is-read' : ''} onClick={() => void readNotification(item)}>
@@ -184,6 +210,7 @@ export function CustomerAccountScreen() {
         })}
       </div>}
     </section>
+    <CustomerPrivacyPanel />
     <footer className="customer-account-footer"><span>Son 100 rezervasyon gösterilir.</span><Link to="/">Ana sayfaya dön</Link></footer>
 
     {selected && <Modal title="Rezervasyonu iptal et" busy={cancelling} onClose={() => setSelected(null)}>

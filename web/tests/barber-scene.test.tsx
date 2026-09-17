@@ -4,7 +4,8 @@ import { afterEach, expect, test, vi } from 'vitest';
 vi.mock('@react-three/fiber', () => ({ Canvas: () => { throw new Error('WebGL unavailable'); } }));
 vi.mock('@react-three/drei', () => {
   const useGLTF = Object.assign(vi.fn(), { preload: vi.fn() });
-  return { ContactShadows: () => null, OrbitControls: () => null, useGLTF };
+  const Stub = () => null;
+  return { ContactShadows: Stub, Environment: Stub, Html: Stub, Lightformer: Stub, MeshReflectorMaterial: Stub, OrbitControls: Stub, Outlines: Stub, RoundedBox: Stub, useGLTF };
 });
 
 import { BarberShopScene } from '../src/components/BarberShopScene';

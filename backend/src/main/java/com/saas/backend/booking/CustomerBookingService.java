@@ -30,16 +30,19 @@ public class CustomerBookingService {
     private final CustomerEmailService customerEmail;
     private final BookingService bookingService;
     private final InAppNotificationService notifications;
+    private final com.saas.backend.flags.FeatureFlagService flags;
 
     public CustomerBookingService(EntityManager em, BookingHoldExpiryService holdExpiry,
                                   OperationsService operations, CustomerEmailService customerEmail,
-                                  BookingService bookingService, InAppNotificationService notifications) {
+                                  BookingService bookingService, InAppNotificationService notifications,
+                                  com.saas.backend.flags.FeatureFlagService flags) {
         this.em = em;
         this.holdExpiry = holdExpiry;
         this.operations = operations;
         this.customerEmail = customerEmail;
         this.bookingService = bookingService;
         this.notifications = notifications;
+        this.flags = flags;
     }
 
     @Transactional
@@ -367,7 +370,8 @@ public class CustomerBookingService {
 
     private boolean trustedAutoConfirm(UUID tenantId) {
         return (Boolean) em.createNativeQuery("select trusted_auto_confirm_enabled from booking_settings where tenant_id=:tenant")
-                .setParameter("tenant", tenantId).getSingleResult();
+                .setParameter("tenant", tenantId).getSingleResult()
+                && flags.enabled(com.saas.backend.flags.FeatureFlag.TRUSTED_AUTO_CONFIRM, tenantId);
     }
 
     private static ApiException stale() { return new ApiException("STALE_VERSION", "Randevu başka bir işlemle değişti. Randevularınızı yenileyin."); }

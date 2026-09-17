@@ -8,7 +8,8 @@ import java.io.IOException;
 public class RateLimitFilter extends OncePerRequestFilter {
     private final TenantRateLimiter limiter;
     private final OperationsService operations;
-    public RateLimitFilter(TenantRateLimiter limiter,OperationsService operations) {this.limiter=limiter;this.operations=operations;}
+    private final com.saas.backend.ops.OpsMetrics metrics;
+    public RateLimitFilter(TenantRateLimiter limiter,OperationsService operations,com.saas.backend.ops.OpsMetrics metrics) {this.limiter=limiter;this.operations=operations;this.metrics=metrics;}
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws IOException,ServletException {
         var auth=SecurityContextHolder.getContext().getAuthentication();
         if(!"OPTIONS".equals(request.getMethod()) && auth!=null && auth.getPrincipal() instanceof AuthenticatedUser u) {
@@ -16,6 +17,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 var probe=limiter.consume(u.tenantId(),"PRO".equals(operations.plan(u.tenantId())));
                 response.setHeader("X-RateLimit-Remaining",Long.toString(probe.getRemainingTokens()));
                 if(!probe.isConsumed()) {
+                    metrics.abuse("tenant_rate_limit");
                     long retry=Math.max(1,(probe.getNanosToWaitForRefill()+999999999L)/1000000000L);
                     reject(response,429,"RATE_LIMIT_EXCEEDED","Çok fazla istek gönderdiniz. Lütfen biraz bekleyin.",retry); return;
                 }

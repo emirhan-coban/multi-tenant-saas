@@ -2,6 +2,7 @@ import type { Role } from '../api/types';
 
 export const memberRoles: readonly Role[] = ['OWNER', 'MANAGER', 'STAFF'];
 export const managementRoles: readonly Role[] = ['OWNER', 'MANAGER'];
+export const ownerRoles: readonly Role[] = ['OWNER'];
 export const roleLabels: Record<Role, string> = { OWNER: 'İşletme sahibi', MANAGER: 'Yönetici', STAFF: 'Personel' };
 
 export const navigation = [
@@ -20,6 +21,7 @@ export const navigation = [
   { path: '/app/audit-log', label: 'İşlem Geçmişi', roles: managementRoles, mark: '08' },
   { path: '/app/plan', label: 'Plan ve Kullanım', roles: managementRoles, mark: '09' },
   { path: '/app/notifications', label: 'Bildirimler', roles: memberRoles, mark: '10' },
+  { path: '/app/feature-flags', label: 'Özellik Anahtarları', roles: ownerRoles, mark: '16' },
 ] as const;
 
 export function canAccess(role: string, allowed: readonly Role[]) {

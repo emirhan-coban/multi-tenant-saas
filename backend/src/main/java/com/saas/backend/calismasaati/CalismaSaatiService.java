@@ -17,15 +17,19 @@ import java.util.UUID;
 public class CalismaSaatiService {
     private final CalismaSaatiRepository hours;
     private final PersonelRepository staff;
+    private final com.saas.backend.operations.OperationsService operations;
 
-    public CalismaSaatiService(CalismaSaatiRepository hours, PersonelRepository staff) {
+    public CalismaSaatiService(CalismaSaatiRepository hours, PersonelRepository staff,
+                               com.saas.backend.operations.OperationsService operations) {
         this.hours = hours;
         this.staff = staff;
+        this.operations = operations;
     }
 
     @Transactional
     public CalismaSaatiDtos.CalismaSaatiResponse olustur(
             AuthenticatedUser user, CalismaSaatiDtos.CalismaSaatiRequest request) {
+        operations.context(user.tenantId());
         validateRange(request.startTime(), request.endTime());
         Personel person = lockStaff(user, request.personelId());
         if (hours.findByPersonelIdAndTenantIdOrderByDayOfWeek(person.getId(), user.tenantId()).stream()
@@ -38,6 +42,8 @@ public class CalismaSaatiService {
     @Transactional
     public List<CalismaSaatiDtos.CalismaSaatiResponse> haftayiKaydet(
             AuthenticatedUser user, CalismaSaatiDtos.HaftalikRequest request) {
+        // Faz 9: HTTP dışından da çağrılabildiği için işletme bağlamı burada da kurulur.
+        operations.context(user.tenantId());
         // Validate the whole week before changing any existing rows.
         if (request.days() == null || request.days().size() != 7) invalidWeek();
         var seen = new HashSet<Integer>();
@@ -63,6 +69,7 @@ public class CalismaSaatiService {
 
     @Transactional(readOnly = true)
     public List<CalismaSaatiDtos.CalismaSaatiResponse> listele(AuthenticatedUser user, UUID personelId) {
+        operations.context(user.tenantId());
         staff.findByIdAndTenantIdAndActiveTrue(personelId, user.tenantId())
                 .orElseThrow(() -> new ApiException("NOT_FOUND", "Personel bulunamadı"));
         return hours.findByPersonelIdAndTenantIdOrderByDayOfWeek(personelId, user.tenantId())

@@ -24,7 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class StaffBookingIntegrationTests extends PostgresTestBase {
-    @Autowired JdbcTemplate db;
+    // Faz 9: fixture SQL'i şema sahibiyle çalışır; uygulama kodu kısıtlı saas_app rolündedir.
+    final JdbcTemplate db = ownerJdbc();
     @Autowired ObjectMapper json;
     @Autowired JwtService jwt;
     @Autowired AppointmentService appointments;

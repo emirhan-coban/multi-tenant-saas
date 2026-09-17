@@ -11,7 +11,7 @@ public class OutboxScheduler {
     @Scheduled(fixedDelayString="${app.outbox.interval-ms:60000}",initialDelayString="${app.outbox.initial-delay-ms:60000}")
     @SchedulerLock(name="appointment-outbox",lockAtMostFor="PT5M",lockAtLeastFor="PT5S")
     public void dispatch() {
-        for(UUID tenant:db.queryForList("select id from tenants",UUID.class)) {
+        for(UUID tenant:db.queryForList("select ops_tenant_ids()",UUID.class)) {
             try {worker.process(tenant);}
             catch(RuntimeException ex) {org.slf4j.LoggerFactory.getLogger(getClass()).error("Outbox transaction failed tenantId={}",tenant);}
         }

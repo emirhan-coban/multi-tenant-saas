@@ -22,18 +22,24 @@ public class StaffBookingService {
     private final com.saas.backend.operations.CustomerEmailService customerEmail;
     private final BookingHoldExpiryService holdExpiry;
     private final BookingAppointmentFactory appointmentFactory;
+    private final InAppNotificationService notifications;
+    private final com.saas.backend.ops.OpsMetrics metrics;
 
     public StaffBookingService(EntityManager em, AppointmentRepository appointments,
                                com.saas.backend.operations.OperationsService operations,
                                com.saas.backend.operations.CustomerEmailService customerEmail,
                                BookingHoldExpiryService holdExpiry,
-                               BookingAppointmentFactory appointmentFactory) {
+                               BookingAppointmentFactory appointmentFactory,
+                               InAppNotificationService notifications,
+                               com.saas.backend.ops.OpsMetrics metrics) {
         this.em = em;
         this.appointments = appointments;
         this.operations = operations;
         this.customerEmail = customerEmail;
         this.holdExpiry = holdExpiry;
         this.appointmentFactory = appointmentFactory;
+        this.notifications = notifications;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -80,6 +86,9 @@ public class StaffBookingService {
         operations.audit(user, "BOOKING_REQUEST_APPROVED", "booking_request", booking.getId(),
                 Map.of("appointmentId", appointment.getId(), "startsAt", booking.getStartsAt().toString()));
         customerEmail.queue(user, appointment, "CUSTOMER_CONFIRMATION");
+        notifications.notifyCustomer(user.tenantId(), tenantCustomer.getCustomerAccountId(), "BOOKING_REQUEST_APPROVED",
+                "Randevun onaylandı", service.getName() + " · " + BookingService.notificationTime(booking.getStartsAt(), zone),
+                "booking_request", booking.getId());
         return response(row(user.tenantId(), requestId));
     }
 
@@ -98,6 +107,10 @@ public class StaffBookingService {
         em.flush();
         operations.audit(user, "BOOKING_REQUEST_REJECTED", "booking_request", booking.getId(),
                 booking.getRejectionReason() == null ? Map.of() : Map.of("reason", booking.getRejectionReason()));
+        var rejectedCustomer = em.find(TenantCustomer.class, booking.getCustomerId());
+        if (rejectedCustomer != null)
+            notifications.notifyCustomer(user.tenantId(), rejectedCustomer.getCustomerAccountId(), "BOOKING_REQUEST_REJECTED",
+                    "Talebin onaylanmadı", "Başka bir saat seçerek yeniden talep oluşturabilirsin.", "booking_request", booking.getId());
         return response(row(user.tenantId(), requestId));
     }
 
@@ -130,6 +143,7 @@ public class StaffBookingService {
                 """).setParameter("tenant", user.tenantId()).setParameter("customer", customerId)
                 .setParameter("before", before.name()).setParameter("after", request.trustState().name())
                 .setParameter("reason", reason).setParameter("actor", user.userId()).executeUpdate();
+        metrics.trustTransition(before.name(), request.trustState().name(), "MANUAL");
         operations.audit(user, "CUSTOMER_TRUST_CHANGED", "tenant_customer", customerId,
                 Map.of("before", before.name(), "after", request.trustState().name(), "reason", Objects.toString(reason, "")));
         return new BookingDtos.TrustResponse(customer.getId(), customer.getTrustState(), customer.getCompletedCount(),

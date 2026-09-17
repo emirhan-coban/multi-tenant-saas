@@ -24,8 +24,12 @@ import java.util.UUID;
 @Service
 public class ShopSceneService {
     private final EntityManager em;
+    private final com.saas.backend.flags.FeatureFlagService flags;
 
-    public ShopSceneService(EntityManager em) { this.em = em; }
+    public ShopSceneService(EntityManager em, com.saas.backend.flags.FeatureFlagService flags) {
+        this.em = em;
+        this.flags = flags;
+    }
 
     @Transactional(readOnly = true)
     public PublicManifest publicManifest(String slug) {
@@ -35,6 +39,8 @@ public class ShopSceneService {
         Object[] row = (Object[]) rows.getFirst();
         UUID tenantId = (UUID) row[0];
         context(tenantId);
+        // Kill switch: istemci bu hatada liste görünümüne geçer; mevcut seçimler korunur.
+        flags.require(com.saas.backend.flags.FeatureFlag.BOOKING_3D, tenantId, "3D dükkân görünümü şu anda kapalı. Liste görünümü kullanılabilir.");
         return new PublicManifest(number(row[2]), row[3].toString(), row[4].toString(), chairs((UUID) row[1], true));
     }
 

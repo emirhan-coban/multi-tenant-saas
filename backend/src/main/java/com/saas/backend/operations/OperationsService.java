@@ -21,11 +21,14 @@ public class OperationsService {
         db.queryForObject("select set_config('app.current_tenant', ?, true)", String.class, tenant.toString());
     }
     public String plan(UUID tenant) {
+        // Faz 9: RLS gerçekten uygulandığı için okuma öncesi bağlam kurulmalı.
+        context(tenant);
         var rows=db.queryForList("select plan from tenants where id=?",String.class,tenant);
         if(rows.isEmpty()) throw new ApiException("NOT_FOUND","İşletme bulunamadı");
         return rows.getFirst();
     }
     public ZoneId zone(UUID tenant) {
+        context(tenant);
         var rows=db.queryForList("select timezone from tenants where id=?",String.class,tenant);
         if(rows.isEmpty()) throw new ApiException("NOT_FOUND","İşletme bulunamadı");
         String z=rows.getFirst();

@@ -23,14 +23,23 @@ public class AuthService {
     private final MembershipRepository membershipRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SessionRevocationService sessions;
+    private final org.springframework.jdbc.core.JdbcTemplate db;
+    private final com.saas.backend.account.KvkkService kvkk;
 
     public AuthService(
         UserRepository userRepository,
         TenantRepository tenantRepository,
         MembershipRepository membershipRepository,
         PasswordEncoder passwordEncoder,
-        JwtService jwtService
+        JwtService jwtService,
+        SessionRevocationService sessions,
+        org.springframework.jdbc.core.JdbcTemplate db,
+        com.saas.backend.account.KvkkService kvkk
     ) {
+        this.sessions = sessions;
+        this.db = db;
+        this.kvkk = kvkk;
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.membershipRepository = membershipRepository;
@@ -53,7 +62,13 @@ public class AuthService {
         Tenant tenant = new Tenant();
         tenant.setName(request.tenantName());
         tenant.setSlug(generateUniqueSlug(request.tenantName()));
-        tenantRepository.save(tenant);
+        tenantRepository.saveAndFlush(tenant);
+        // Faz 9: kısıtlı veritabanı rolünde RLS gerçekten uygulanır. Yeni işletme satırı
+        // yalnızca kendi bağlamında okunabilir; kaydın devamı için bağlam hemen kurulur.
+        db.queryForObject("select set_config('app.current_tenant', ?, true)", String.class, tenant.getId().toString());
+
+        // KVKK: kayıt anında yürürlükteki aydınlatma metninin sürümü işlenir.
+        kvkk.recordConsent(user.getId(), false);
 
         Membership membership = new Membership();
         membership.setUser(user);
@@ -122,6 +137,8 @@ public class AuthService {
         } catch (io.jsonwebtoken.JwtException | IllegalArgumentException ex) {
             throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
         }
+        if (sessions.staffTokenRevoked(userId, claims))
+            throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
         var memberships = membershipRepository.findByUserId(userId);
         var membership = memberships.stream()
             .filter(item -> item.getTenant().getId().equals(tenantId))
@@ -141,7 +158,9 @@ public class AuthService {
         String base = slugify(tenantName);
         String slug = base;
         int counter = 1;
-        while (tenantRepository.existsBySlug(slug)) {
+        // Faz 9: uygulama rolü RLS nedeniyle diğer işletmelerin satırlarını göremez;
+        // benzersizlik kontrolü güvenli fonksiyonla yapılır.
+        while (Boolean.TRUE.equals(db.queryForObject("select tenant_slug_taken(?)", Boolean.class, slug))) {
             slug = base + "-" + counter;
             counter++;
         }

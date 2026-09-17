@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router';
 import { AppRoutes } from '../src/router/AppRoutes';
 import { CustomerAuthProvider } from '../src/store/customer-auth';
-import { cancelBookingRequest, createBookingRequest, getAvailability, getBookingRequest, getPublicScene, getPublicShop } from '../src/api/customer-booking';
+import { cancelBookingRequest, createBookingRequest, getAvailability, getBookingRequest, getPublicScene, getPublicShop, getShopFeatures } from '../src/api/customer-booking';
 import { restoreCustomerSession } from '../src/api/customer-client';
 
 vi.mock('../src/components/BarberShopScene', () => ({
@@ -13,6 +13,7 @@ vi.mock('../src/components/BarberShopScene', () => ({
 vi.mock('../src/api/customer-booking', () => ({
   getPublicShop: vi.fn(),
   getPublicScene: vi.fn(),
+  getShopFeatures: vi.fn(),
   getAvailability: vi.fn(),
   createBookingRequest: vi.fn(),
   getBookingRequest: vi.fn(),
@@ -50,6 +51,7 @@ beforeEach(() => {
   vi.mocked(restoreCustomerSession).mockResolvedValue(session);
   vi.mocked(getPublicShop).mockResolvedValue(shop);
   vi.mocked(getPublicScene).mockResolvedValue(manifest);
+  vi.mocked(getShopFeatures).mockResolvedValue({ threeD: true, pushNotifications: true, pwaInstall: true });
   vi.mocked(getAvailability).mockResolvedValue(availability);
   vi.mocked(createBookingRequest).mockResolvedValue({
     id: 'request-1', tenantSlug: 'moda', resultType: 'REQUEST', serviceId: 'service-1', staffId: 'staff-1',
@@ -72,21 +74,27 @@ beforeEach(() => {
     createdAt: '2030-01-01T10:00:00Z', cancelledAt: '2030-01-01T10:01:00Z',
   });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+function confirmThroughSteps() {
+  fireEvent.click(screen.getByRole('button', { name: 'Devam et' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Devam et' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Randevuyu onayla' }));
+}
 
 test('customer selects a chair slot and creates an approval request', async () => {
   render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
-  await screen.findByRole('heading', { name: 'Koltuk seç.' });
+  await screen.findByRole('heading', { name: 'Randevun' });
   expect(await screen.findByTestId('shop-scene')).toBeTruthy();
-  expect(screen.getByRole('button', { name: /Deniz Usta/ })).toBeTruthy();
+  expect(screen.getByText('Deniz · Koltuk 01')).toBeTruthy();
   await screen.findByRole('button', { name: '12:00' });
   fireEvent.click(screen.getByRole('button', { name: '12:00' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Randevuyu onayla' }));
+  confirmThroughSteps();
 
   await waitFor(() => expect(createBookingRequest).toHaveBeenCalledWith(expect.objectContaining({
     tenantSlug: 'moda', staffId: 'staff-1', serviceId: 'service-1', startsAt: availability.slots[0].startsAt,
   })));
-  await screen.findByRole('heading', { name: 'İşletme onayı bekleniyor.' });
+  await screen.findByRole('heading', { name: 'Talebin gönderildi.' });
   expect(screen.getByText(/Kalan değerlendirme süresi/)).toBeTruthy();
 });
 
@@ -100,8 +108,9 @@ test('trusted customer sees an explicit automatic confirmation result', async ()
   render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
   await screen.findByRole('button', { name: '12:00' });
   fireEvent.click(screen.getByRole('button', { name: '12:00' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Randevuyu onayla' }));
-  expect(await screen.findByRole('heading', { name: 'Randevun kesinleşti.' })).toBeTruthy();
+  confirmThroughSteps();
+  // Faz 10: otomatik onaylanan müşteriye randevunun oluştuğu söylenir.
+  expect(await screen.findByRole('heading', { name: 'Randevun oluşturuldu.' })).toBeTruthy();
   expect(screen.getByText(/Doğrulanmış müşteri hesabın sayesinde/)).toBeTruthy();
 });
 
@@ -109,7 +118,7 @@ test('customer can cancel from the booking result', async () => {
   render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
   await screen.findByRole('button', { name: '12:00' });
   fireEvent.click(screen.getByRole('button', { name: '12:00' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Randevuyu onayla' }));
+  confirmThroughSteps();
   fireEvent.click(await screen.findByRole('button', { name: 'Rezervasyonu iptal et' }));
   await waitFor(() => expect(cancelBookingRequest).toHaveBeenCalledWith(expect.objectContaining({ id: 'request-1', version: 1 })));
   await screen.findByRole('heading', { name: 'Rezervasyonun iptal edildi.' });
@@ -125,7 +134,70 @@ test('pending result refreshes automatically when the barber approves it', async
   render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
   await screen.findByRole('button', { name: '12:00' });
   fireEvent.click(screen.getByRole('button', { name: '12:00' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Randevuyu onayla' }));
+  confirmThroughSteps();
   await screen.findByRole('heading', { name: 'Randevun kesinleşti.' });
   expect(getBookingRequest).toHaveBeenCalledWith('request-1');
+});
+
+test('list view keeps the same selection and shows first available time per barber', async () => {
+  render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda?view=list']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
+  const barber = await screen.findByRole('button', { name: /Deniz Usta/ });
+  expect(barber.getAttribute('aria-pressed')).toBe('true');
+  expect(await screen.findByText('İlk müsait 12:00')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Devam et' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: '12:00' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Devam et' }));
+  expect(await screen.findByText('ada@example.com')).toBeTruthy();
+  fireEvent.change(screen.getByPlaceholderText(/yanlar kısa/), { target: { value: 'Kısa olsun' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Devam et' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Randevuyu onayla' }));
+  await waitFor(() => expect(createBookingRequest).toHaveBeenCalledWith(expect.objectContaining({ source: 'WEB_LIST', note: 'Kısa olsun' })));
+});
+
+test('3D kill switch açıkken sayfa liste görünümüyle açılır ve rezervasyon WEB_LIST olarak gider', async () => {
+  vi.mocked(getShopFeatures).mockResolvedValue({ threeD: false, pushNotifications: true, pwaInstall: true });
+  render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
+  expect(await screen.findByRole('button', { name: /Deniz Usta/ })).toBeTruthy();
+  await waitFor(() => expect(screen.getByRole('button', { name: /3D görünüm/ }).hasAttribute('disabled')).toBe(true));
+  expect(screen.queryByTestId('shop-scene')).toBeNull();
+  fireEvent.click(await screen.findByRole('button', { name: '12:00' }));
+  confirmThroughSteps();
+  await waitFor(() => expect(createBookingRequest).toHaveBeenCalledWith(expect.objectContaining({ source: 'WEB_LIST' })));
+  expect(vi.mocked(createBookingRequest).mock.calls[0][0]).not.toHaveProperty('chairKey');
+});
+
+test('gönderim sırasında 3D kapatılırsa seçimler korunur ve aynı talep listeden tekrar gönderilir', async () => {
+  vi.mocked(createBookingRequest).mockRejectedValueOnce({ isAxiosError: true, response: { status: 409, data: { code: 'FEATURE_DISABLED', message: 'kapalı' } } });
+  render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
+  expect(await screen.findByTestId('shop-scene')).toBeTruthy();
+  fireEvent.click(await screen.findByRole('button', { name: '12:00' }));
+  confirmThroughSteps();
+  expect(await screen.findByText(/3D görünüm şu anda kapalı. Seçimlerin korundu/)).toBeTruthy();
+  expect(vi.mocked(createBookingRequest).mock.calls[0][0]).toMatchObject({ source: 'WEB_3D', chairKey: 'chair-1' });
+  expect(screen.queryByTestId('shop-scene')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Randevuyu onayla' }));
+  await screen.findByRole('heading', { name: 'Talebin gönderildi.' });
+  expect(vi.mocked(createBookingRequest).mock.calls[1][0]).toMatchObject({ source: 'WEB_LIST', staffId: 'staff-1', startsAt: availability.slots[0].startsAt });
+});
+
+test('bayrak uç noktası yoksa (eski sunucu) 3D akışı bozulmaz', async () => {
+  vi.mocked(getShopFeatures).mockRejectedValue(new Error('404'));
+  render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
+  expect(await screen.findByTestId('shop-scene')).toBeTruthy();
+});
+
+test('çevrimdışıyken onay düğmesi pasif ve durum duyurulur; adım değişince odak panele taşınır', async () => {
+  let connected = false;
+  Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => connected });
+  render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: '12:00' }));
+  expect(screen.getByText(/İnternet bağlantısı yok/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Devam et' }).hasAttribute('disabled')).toBe(true);
+  connected = true;
+  window.dispatchEvent(new Event('online'));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Devam et' }).hasAttribute('disabled')).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: 'Devam et' }));
+  await waitFor(() => expect(document.activeElement?.id).toBe('booking-panel-title'));
+  expect(screen.getByRole('link', { name: 'Randevu paneline geç' }).getAttribute('href')).toBe('#booking-panel');
+  delete (navigator as unknown as Record<string, unknown>).onLine;
 });

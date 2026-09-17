@@ -3,9 +3,10 @@ spring:
     name: saas-backend
 
   datasource:
+    # Faz 9: uygulama süper kullanıcı olmayan saas_app rolüyle bağlanır, RLS gerçekten uygulanır.
     url: jdbc:postgresql://localhost:5432/saasdb
-    username: admin
-    password: admin123
+    username: ${APP_DB_USER:saas_app}
+    password: ${APP_DB_PASSWORD:saas_app_dev}
 
   jpa:
     hibernate:
@@ -18,18 +19,75 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # Göçler şema sahibiyle çalışır; uygulama rolünün DDL yetkisi yoktur.
+    user: ${DB_OWNER_USER:admin}
+    password: ${DB_OWNER_PASSWORD:admin123}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        # /actuator/metrics yalnızca APP_OPS_METRICS_TOKEN ile açılır (OpsTokenFilter); health herkese açıktır.
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,300ms,1s,3s
 
 server:
   port: 8080
 
 app:
   jwt:
-    secret: "12342222233232325678987654321213324355232323122321"
+    # Üretimde APP_JWT_SECRET zorunlu; aşağıdaki değer yalnızca yerel geliştirme içindir
+    # ve SecurityStartupCheck tarafından üretimde reddedilir.
+    secret: ${APP_JWT_SECRET:12342222233232325678987654321213324355232323122321}
     expiration-minutes: 60
     refresh-expiration-days: 30
+
+  security:
+    # Joker kabul edilmez; üretimde https kaynaklar verilmelidir.
+    allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173,http://localhost:3000}
+    content-security-policy: ${APP_CONTENT_SECURITY_POLICY:default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'}
+    hsts-max-age-seconds: ${APP_HSTS_MAX_AGE_SECONDS:0}
+    # Üretimde false: eksik/zayıf sır varsa uygulama açılmaz.
+    dev-secrets-allowed: ${APP_SECURITY_DEV_SECRETS_ALLOWED:true}
+
+  push:
+    # Üretimde zorunlu: java backend/src/main/java/com/saas/backend/push/WebPushCrypto.java ile üretin.
+    vapid-public-key: ${APP_PUSH_VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${APP_PUSH_VAPID_PRIVATE_KEY:}
+    subject: ${APP_PUSH_SUBJECT:mailto:ops@localhost}
+    allow-ephemeral-keys: ${APP_PUSH_ALLOW_EPHEMERAL_KEYS:true}
+    interval-ms: 15000
+
+  # Şifre sıfırlama / doğrulama bağlantılarının işaret ettiği ön yüz adresi.
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:5173}
+
+  account:
+    password-reset-minutes: 60
+    email-verify-hours: 48
+    # Hesap başına saatlik istek üst sınırı (şifre sıfırlama / doğrulama).
+    hourly-request-limit: 5
+
+  kvkk:
+    # Aydınlatma metninin yürürlükteki sürümü; kayıtta bu değer saklanır.
+    policy-version: ${APP_KVKK_POLICY_VERSION:2026-09}
+
+  ops:
+    metrics-token: ${APP_OPS_METRICS_TOKEN:}
+
+  retention:
+    cron: "0 30 3 * * *"
+    idempotency-hours: 48
+    unverified-visit-code-days: 30
+    read-notification-days: 90
+    notification-max-days: 180
+    finished-outbox-days: 30
+    finished-push-delivery-days: 7
+    disabled-push-subscription-days: 30

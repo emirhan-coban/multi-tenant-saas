@@ -198,3 +198,39 @@ Son frontend doğrulaması: 53 test geçti (15 takvim/randevu testi dahil), prod
 `/app/appointments` sayfası müsait saat seçimi, oluşturma, günlük liste/personel filtresi, taşıma ve durum değişiklikleri sunar. PostgreSQL exclusion constraint tampon dahil çakışmayı engeller. Idempotency-Key yinelenen oluşturmayı, @Version eşzamanlı düzenlemede veri kaybını önler.
 
 API örnekleri, tasarım kararları, saat dilimi sözleşmesi, kapsam sınırları ve Java kurmadan Docker ile test komutları: [Faz 3 teknik notları](docs/phase-3-appointments.md).
+
+## Plan V2 Faz 8 - PWA, bildirim, performans ve kontrollü yayın
+
+Web push (RFC 8291/8292, harici kütüphanesiz), güvenli service worker ve sınırlı çevrimdışı kabuk,
+ana ekrana ekleme, feature flag kill switch'leri (`booking.3d`, `booking.trusted_auto_confirm`,
+`push.notifications`, `pwa.install`), operasyon metrikleri, tüm cihazlardan çıkış, veri saklama işi,
+backup/restore tatbikatı ve erişilebilirlik/zoom/düşük donanım denetimi. Uçtan uca güven senaryosu:
+[phase-8/e2e-trust-lifecycle.md](docs/phase-8/e2e-trust-lifecycle.md). Genel belge ve doğrulama durumu:
+[Faz V2-8 teknik notları](docs/phase-v2-8-pwa-notifications-rollout.md).
+
+## Plan V2 Faz 9 - Yayın öncesi güvenlik, KVKK ve dağıtım
+
+Uygulama artık veritabanına **süper kullanıcı olmayan** `saas_app` rolüyle bağlanır; RLS
+yazılı değil, gerçekten uygulanır (Flyway göçleri şema sahibiyle çalışır). Bütün entegrasyon
+testleri de bu kısıtlı rolle koşar. Sırlar ortam değişkenlerine taşındı, CORS'taki joker
+kaldırıldı, güvenlik başlıkları ve açılış denetimi eklendi. Şifre sıfırlama ve e-posta
+doğrulama (tek kullanımlık, özeti saklanan token'lar), KVKK açık rıza kaydı, veri dışa
+aktarma ve hesap silme (anonimleştirme) devrede. İşletme sahibi için özellik anahtarları
+ekranı, üretim imajları (`docker-compose.prod.yml`, `backend/Dockerfile`, `web/Dockerfile`)
+ve GitHub Actions CI eklendi. Ayrıntılar ve kısıtlı rolün ortaya çıkardığı dört üretim hatası:
+[Faz V2-9 teknik notları](docs/phase-v2-9-security-compliance-deployment.md).
+
+Üretim kurulumu için: `cp ops/env.prod.example .env.prod` (değerleri doldurun), ardından
+`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`.
+
+## Plan V2 Faz 10 - Telefonda aşamalı rezervasyon akışı
+
+Telefonda akış aşamalara ayrıldı: **berber seçimi** (sahne + hizmet çipleri + berber şeridi),
+**saat** (sahne sökülür, yerine seçim anında yakalanan donmuş kare gelir), **bilgiler** ve
+**son kontrol**. Berber isimleri 3B sahneden çıkarılıp şeride taşındı (uzun isimler koltukta
+çakışıyordu); koltukta yalnızca numara kalır. Alt panel sürüklenebilir ama genişlet/küçült
+düğmesi de var; fiyat ve birincil düğme altta sabit kalır ve klavye açıldığında hiçbir alanı
+örtmez. Tüm dokunma hedefleri 48 CSS piksel. Sahne görünmezken render durur, mobilde
+yansıma/gölge kapalıdır, DPR sınırlıdır. Ölçüm: LCP, INP ve kare bütçesinin yanında sahnenin
+**seçilebilir olma süresi** ayrıca toplanır (`POST /api/public/v1/metrics/booking`).
+Ayrıntılar: [Faz V2-10 teknik notları](docs/phase-v2-10-mobile-booking-flow.md).

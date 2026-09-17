@@ -28,10 +28,12 @@ public class VisitVerificationService {
     private final SecureRandom random = new SecureRandom();
     private final com.saas.backend.operations.OperationsService operations;
     private final byte[] codePepper;
+    private final com.saas.backend.ops.OpsMetrics metrics;
 
     public VisitVerificationService(EntityManager em, com.saas.backend.operations.OperationsService operations,
-                                    @Value("${app.jwt.secret}") String codePepper) {
+                                    @Value("${app.jwt.secret}") String codePepper, com.saas.backend.ops.OpsMetrics metrics) {
         this.em = em;
+        this.metrics = metrics;
         this.operations = operations;
         this.codePepper = codePepper.getBytes(StandardCharsets.UTF_8);
     }
@@ -119,6 +121,7 @@ public class VisitVerificationService {
     }
 
     private VisitVerificationDtos.Attempt failed(String code, String message) {
+        metrics.abuse("visit_code_failure");
         return new VisitVerificationDtos.Attempt(false, null, code, message);
     }
     private void context(UUID tenantId) {

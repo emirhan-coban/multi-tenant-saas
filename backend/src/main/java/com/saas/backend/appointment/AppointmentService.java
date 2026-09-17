@@ -24,9 +24,11 @@ public class AppointmentService {
     private final ObjectMapper json;
     private final com.saas.backend.operations.OperationsService operations;
     private final com.saas.backend.operations.CustomerEmailService customerEmail;
+    private final com.saas.backend.ops.OpsMetrics metrics;
     private final MusaitlikHesaplayici calculator = new MusaitlikHesaplayici();
-    public AppointmentService(AppointmentRepository appointments, EntityManager em, ObjectMapper json, com.saas.backend.operations.OperationsService operations, com.saas.backend.operations.CustomerEmailService customerEmail) {
+    public AppointmentService(AppointmentRepository appointments, EntityManager em, ObjectMapper json, com.saas.backend.operations.OperationsService operations, com.saas.backend.operations.CustomerEmailService customerEmail, com.saas.backend.ops.OpsMetrics metrics) {
         this.customerEmail=customerEmail;
+        this.metrics=metrics;
         this.operations=operations;
         this.appointments=appointments; this.em=em; this.json=json;
     }
@@ -170,6 +172,7 @@ public class AppointmentService {
             .setParameter("before",before).setParameter("after",after).setParameter("reason",reason)
             .setParameter("actor",user.userId()).setParameter("appointment",appointment.getId()).executeUpdate();
         em.flush();
+        if(!before.equals(after)) metrics.trustTransition(before,after,reason);
         return new TrustOutcome(after,!before.equals(after));
     }
 

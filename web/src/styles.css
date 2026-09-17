@@ -494,3 +494,68 @@ a:focus-visible, button:focus-visible { outline: 3px solid #658031; outline-offs
   .trust-timeline article { grid-template-columns: 1fr; }
   .trust-timeline article p, .trust-timeline article small { grid-column: 1; }
 }
+
+/* Faz 8 */
+.customer-account-exit { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.text-button { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .85rem; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.text-button:hover { color: var(--ink); }
+.text-button:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.customer-account-shell > .offline-banner { margin: 20px 0 0; }
+.customer-pwa-row, .staff-push-row { display: grid; gap: 14px; margin: 0 0 40px; }
+.customer-pwa-row:empty, .staff-push-row:empty { display: none; }
+.panel-content > .offline-banner { margin-bottom: 20px; }
+
+/* ---------------------------------------------------------------------------
+   Faz 9 — özellik anahtarları, hesap kurtarma ve KVKK ekranları.
+   --------------------------------------------------------------------------- */
+
+.auth-secondary { margin: 0.75rem 0 0; }
+.auth-legal { margin: 0.5rem 0 1rem; font-size: 0.85rem; line-height: 1.5; }
+
+.legal-page .card { max-width: 52rem; }
+.legal-page h2 { margin-top: 1.75rem; font-size: 1.05rem; }
+.legal-page ul { padding-left: 1.2rem; line-height: 1.7; }
+
+.flag-list { list-style: none; margin: 1.5rem 0 0; padding: 0; display: grid; gap: 0.75rem; }
+
+.flag-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 1.5rem;
+  align-items: start;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--line, #e3e6e4);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+
+.flag-row-main h2 { margin: 0 0 0.25rem; font-size: 1.02rem; }
+.flag-row-main p { margin: 0.2rem 0; }
+.flag-row-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.flag-state { font-weight: 600; }
+.flag-state.on { color: #1f6f4a; }
+.flag-state.off { color: #8a4b1e; }
+
+.flag-reason {
+  grid-column: 1 / -1;
+  border-top: 1px dashed var(--line, #e3e6e4);
+  padding-top: 0.9rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.flag-reason-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.privacy-panel {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line, #e3e6e4);
+  border-radius: 12px;
+}
+.privacy-panel h2 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+.privacy-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.9rem; }
+
+@media (max-width: 640px) {
+  .flag-row { grid-template-columns: minmax(0, 1fr); }
+  .flag-row-actions { flex-direction: row; flex-wrap: wrap; }
+}

@@ -35,6 +35,13 @@ export async function getPublicShop(slug: string) {
   return (await publicApi.get<PublicShop>(`/api/public/v1/shops/${encodeURIComponent(slug)}`)).data;
 }
 
+export type ShopFeatures = { threeD: boolean; pushNotifications: boolean; pwaInstall: boolean };
+
+/** Kontrollü yayın bayrakları. Uç nokta yoksa (eski backend) varsayılanlar kullanılır. */
+export async function getShopFeatures(slug: string) {
+  return (await publicApi.get<ShopFeatures>(`/api/public/v1/shops/${encodeURIComponent(slug)}/features`)).data;
+}
+
 export async function getPublicScene(slug: string) {
   return (await publicApi.get<PublicSceneManifest>(`/api/public/v1/shops/${encodeURIComponent(slug)}/scene`)).data;
 }

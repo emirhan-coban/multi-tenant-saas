@@ -18,7 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AppointmentIntegrationTests extends PostgresTestBase {
     @Autowired AppointmentService service;
-    @Autowired JdbcTemplate jdbc;
+    // Faz 9: fixture SQL'i şema sahibiyle çalışır; uygulama kodu kısıtlı saas_app rolündedir.
+    final JdbcTemplate jdbc = ownerJdbc();
     @Autowired JwtService jwt;
     @Autowired ObjectMapper json;
     @Value("${local.server.port}") int port;

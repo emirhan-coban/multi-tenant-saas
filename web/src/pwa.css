@@ -1,0 +1,39 @@
+/* Faz 8 — PWA, bildirim ve bağlantı durumu bileşenleri */
+.push-card { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 16px; padding: 22px; border: 1px solid #dfe4e1; border-radius: 12px; background: #fff; color: #151a19; }
+.push-card h2 { margin: 2px 0 6px; font: 600 1.15rem 'DM Sans', sans-serif; }
+.push-card p { margin: 0 0 8px; line-height: 1.55; }
+.push-card-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #e3f3f1; color: #106663; }
+.push-card-icon svg, .offline-banner svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.push-muted { color: #5b6662; font-size: .92rem; }
+.push-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.push-primary, .push-quiet { min-height: 44px; padding: 0 18px; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; }
+.push-primary { border: 0; background: #177f7c; color: #fff; }
+.push-primary:hover:not(:disabled) { background: #106663; }
+.push-quiet { border: 1px solid #cfd6d3; background: #fff; color: #151a19; }
+.push-primary:disabled, .push-quiet:disabled { opacity: .6; cursor: wait; }
+.push-primary:focus-visible, .push-quiet:focus-visible, .install-close:focus-visible, .update-banner button:focus-visible { outline: 3px solid #0b4f4d; outline-offset: 2px; }
+.push-on { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; color: #0f6b4e; font-weight: 600; }
+.push-on span { width: 9px; height: 9px; border-radius: 50%; background: #1f9d6c; box-shadow: 0 0 0 4px rgba(31, 157, 108, .18); }
+.push-feedback:empty { display: none; }
+.push-feedback { margin-top: 10px !important; color: #0f6b4e; font-size: .92rem; }
+
+.install-prompt { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid #cfe6e3; border-radius: 12px; background: #f1faf9; color: #151a19; }
+.install-prompt img { border-radius: 10px; }
+.install-prompt strong { display: block; }
+.install-prompt p { margin: 2px 0 0; color: #4d5956; font-size: .9rem; line-height: 1.45; }
+.install-close { width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #4d5956; font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.install-close:hover { background: rgba(0,0,0,.05); }
+
+.offline-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; background: #fff4e0; color: #6b4300; font-size: .92rem; font-weight: 600; }
+.offline-banner > span { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: #d98a00; }
+.update-banner { position: fixed; z-index: 50; left: 50%; bottom: 20px; display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 18px; border-radius: 999px; background: #151a19; color: #fff; box-shadow: 0 12px 30px rgba(0,0,0,.25); transform: translateX(-50%); }
+.update-banner button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: #46d3ca; color: #0c2322; font: inherit; font-weight: 700; cursor: pointer; }
+@media (max-width: 560px) {
+  .push-card { grid-template-columns: 1fr; }
+  .install-prompt { grid-template-columns: 40px minmax(0, 1fr) auto; }
+  .install-prompt .push-primary { grid-column: 2; justify-self: start; }
+  .install-close { grid-column: 3; grid-row: 1; }
+}
+@media (forced-colors: active) {
+  .push-on span, .offline-banner > span { forced-color-adjust: none; }
+}

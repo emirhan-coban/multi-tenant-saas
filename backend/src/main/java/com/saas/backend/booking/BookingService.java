@@ -34,6 +34,9 @@ public class BookingService {
     private final ObjectMapper json;
     private final BookingHoldExpiryService holdExpiry;
     private final BookingAppointmentFactory appointmentFactory;
+    private final com.saas.backend.flags.FeatureFlagService flags;
+    private final InAppNotificationService notifications;
+    private final com.saas.backend.ops.OpsMetrics metrics;
     private final MusaitlikHesaplayici calculator = new MusaitlikHesaplayici();
 
     public BookingService(EntityManager em, AppointmentRepository appointments,
@@ -41,7 +44,10 @@ public class BookingService {
                           com.saas.backend.operations.OperationsService operations, ObjectMapper json,
                           BookingHoldExpiryService holdExpiry,
                           com.saas.backend.operations.CustomerEmailService customerEmail,
-                          BookingAppointmentFactory appointmentFactory) {
+                          BookingAppointmentFactory appointmentFactory,
+                          com.saas.backend.flags.FeatureFlagService flags,
+                          InAppNotificationService notifications,
+                          com.saas.backend.ops.OpsMetrics metrics) {
         this.em = em;
         this.appointments = appointments;
         this.customers = customers;
@@ -51,6 +57,9 @@ public class BookingService {
         this.json = json;
         this.holdExpiry = holdExpiry;
         this.appointmentFactory = appointmentFactory;
+        this.flags = flags;
+        this.notifications = notifications;
+        this.metrics = metrics;
     }
 
     @Transactional(readOnly = true)
@@ -102,8 +111,10 @@ public class BookingService {
         var customer = activeCustomer(accountId);
         var tenantCustomer = tenantCustomer(tenant.id(), accountId);
         lockCustomer(tenantCustomer);
-        if (tenantCustomer.getTrustState() == CustomerTrustState.BLOCKED)
+        if (tenantCustomer.getTrustState() == CustomerTrustState.BLOCKED) {
+            metrics.abuse("blocked_customer");
             throw new ApiException("CUSTOMER_BLOCKED", "Bu işletmede çevrim içi rezervasyon oluşturamazsınız.");
+        }
 
         var service = service(tenant.id(), request.serviceId());
         person(tenant.id(), request.staffId());
@@ -134,8 +145,10 @@ public class BookingService {
         booking.setChairKey(blankToNull(request.chairKey()));
 
         enforceDailyLimit(tenant.id(), tenantCustomer.getId(), timezone, policy.maxDailyBookings());
+        // İşletme ayarı + global/işletme kill switch: ikisi de açık olmadıkça güvenilir müşteri de onaya düşer.
         boolean autoConfirm = tenantCustomer.getTrustState() == CustomerTrustState.TRUSTED
-                && policy.trustedAutoConfirmEnabled();
+                && policy.trustedAutoConfirmEnabled()
+                && flags.enabled(com.saas.backend.flags.FeatureFlag.TRUSTED_AUTO_CONFIRM, tenant.id());
         if (autoConfirm) {
             enforceFutureLimit(tenant.id(), tenantCustomer.getId(), policy.maxFutureAppointments());
             enforceCustomerAvailability(tenant.id(), tenantCustomer.getId(), booking.getStartsAt(), booking.getBusyUntil());
@@ -157,6 +170,17 @@ public class BookingService {
         }
         em.persist(booking);
         em.flush();
+        metrics.bookingDecision(booking.getDecision().name(), booking.getSource().name());
+        String when = notificationTime(booking.getStartsAt(), timezone);
+        if (autoConfirm) {
+            notifications.notifyCustomer(tenant.id(), accountId, "APPOINTMENT_CONFIRMED", "Randevun kesinleşti",
+                    tenant.name() + " · " + service.getName() + " · " + when, "booking_request", booking.getId());
+            notifications.notifyManagers(tenant.id(), "APPOINTMENT_AUTO_CONFIRMED", "Otomatik onaylanan randevu",
+                    service.getName() + " · " + when, "booking_request", booking.getId());
+        } else {
+            notifications.notifyManagers(tenant.id(), "BOOKING_REQUEST_CREATED", "Yeni rezervasyon talebi",
+                    service.getName() + " · " + when + " onay bekliyor", "booking_request", booking.getId());
+        }
         return response(booking, tenant.slug(), tenantCustomer.getTrustState());
     }
 
@@ -324,6 +348,11 @@ public class BookingService {
                 throw new ApiException("INVALID_BOOKING_SOURCE", "Liste rezervasyonunda sahne bilgisi gönderilemez.");
             return;
         }
+        if (!flags.enabled(com.saas.backend.flags.FeatureFlag.BOOKING_3D, tenantId)) {
+            metrics.featureDisabledHit(com.saas.backend.flags.FeatureFlag.BOOKING_3D.key());
+            throw new ApiException("FEATURE_DISABLED", "3D koltuk seçimi şu anda kapalı. Aynı berber ve saati liste görünümünden seçebilirsiniz.",
+                    Map.of("flag", com.saas.backend.flags.FeatureFlag.BOOKING_3D.key(), "fallback", "WEB_LIST"));
+        }
         if (request.sceneVersion() == null || blankToNull(request.chairKey()) == null)
             throw new ApiException("INVALID_SCENE_SELECTION", "3D rezervasyonu için sahne ve koltuk seçimi zorunludur.");
         Number matches = (Number) em.createNativeQuery("""
@@ -334,6 +363,10 @@ public class BookingService {
                 .setParameter("chair", request.chairKey()).setParameter("staff", request.staffId()).getSingleResult();
         if (matches.longValue() != 1)
             throw new ApiException("STALE_SCENE_SELECTION", "Dükkân düzeni değişti. Sahneyi yenileyip koltuğu tekrar seçin.");
+    }
+
+    static String notificationTime(Instant startsAt, ZoneId zone) {
+        return java.time.format.DateTimeFormatter.ofPattern("d MMMM HH:mm", Locale.forLanguageTag("tr-TR")).format(startsAt.atZone(zone));
     }
 
     private static BookingSource source(BookingDtos.CreateRequest request) {

@@ -6,6 +6,8 @@ import { errorMessage } from '../api/errors';
 import { useTenant } from '../store/tenant';
 import { Button, Card } from '../components/ui';
 import '../operations.css';
+import { NotificationPermissionCard } from '../components/NotificationPermissionCard';
+import { InstallPrompt } from '../components/InstallPrompt';
 
 type Counter = { used: number; limit: number | null };
 type Usage = { plan: string; staff: Counter; appointments: Counter; resetsAt: string; timezone: string; requestsPerMinute: number };
@@ -117,6 +119,7 @@ export function NotificationsScreen() {
     {query.data && <label className="notification-toggle"><input type="checkbox" checked={query.data.remindersEnabled} disabled={mutation.isPending || query.isFetching} onChange={e => mutation.mutate(e.target.checked)} /><span>Oluşturduğum randevular için hatırlatma gönder</span></label>}
     {mutation.isError && <Failure error={mutation.error} />}{mutation.isSuccess && <p role="status">Tercihiniz kaydedildi.</p>}
     <p className="muted">Bu tercih yalnızca kendi hesabınızın konsol hatırlatmalarını kontrol eder. Müşteri e-postaları randevu formundaki ayrı seçimle açılır. SMS gönderilmez.</p></Card>
+    <div className="operations-section staff-push-row"><NotificationPermissionCard audience="staff" /><InstallPrompt context="staff" /></div>
     <section className="operations-section notification-inbox"><div><p className="eyebrow">İŞLEM BİLDİRİMLERİ</p><h2>Gelen kutusu</h2></div>
       {inbox.isPending&&<p role="status">Bildirimler yükleniyor...</p>}{inbox.isError&&<Failure error={inbox.error}/>} {!inbox.isPending&&!inbox.data?.length&&<p className="muted">Henüz işlem bildirimi yok.</p>}
       {inbox.data?.map(item=><button key={item.id} className={item.readAt?'is-read':''} disabled={read.isPending} onClick={()=>{if(!item.readAt)read.mutate(item.id);}}><span><strong>{item.title}</strong><small>{new Date(item.createdAt).toLocaleString('tr-TR')}</small></span><p>{item.body}</p>{!item.readAt&&<i>Yeni</i>}</button>)}

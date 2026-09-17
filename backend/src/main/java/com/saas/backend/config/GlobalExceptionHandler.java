@@ -13,6 +13,11 @@ import com.saas.backend.booking.BookingRateLimitException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private final com.saas.backend.ops.OpsMetrics metrics;
+
+    public GlobalExceptionHandler(com.saas.backend.ops.OpsMetrics metrics) {
+        this.metrics = metrics;
+    }
 
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String,String>> malformedBody(Exception ex) {
@@ -43,13 +48,17 @@ public class GlobalExceptionHandler {
                     "INVALID_TRANSITION", "ACTIVE_REQUEST_LIMIT", "BOOKING_ALREADY_DECIDED", "BOOKING_REQUEST_EXPIRED",
                     "BOOKING_ALREADY_CANCELLED", "CANCELLATION_WINDOW_CLOSED", "VISIT_CODE_WINDOW_CLOSED",
                     "VISIT_ALREADY_VERIFIED", "RESCHEDULE_WINDOW_CLOSED", "ACTIVE_RESCHEDULE_LIMIT",
-                    "RESCHEDULE_ALREADY_DECIDED", "CLOSURE_CONFLICT", "STALE_SCENE_SELECTION" -> HttpStatus.CONFLICT;
+                    "RESCHEDULE_ALREADY_DECIDED", "CLOSURE_CONFLICT", "STALE_SCENE_SELECTION", "FEATURE_DISABLED" -> HttpStatus.CONFLICT;
             case "NOT_FOUND", "CUSTOMER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "PUSH_NOT_CONFIGURED" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "INVALID_CREDENTIALS", "INVALID_REFRESH_TOKEN", "INVALID_CUSTOMER_CREDENTIALS", "INVALID_CUSTOMER_REFRESH_TOKEN" -> HttpStatus.UNAUTHORIZED;
             case "NO_TENANT", "QUOTA_EXCEEDED", "CUSTOMER_BLOCKED" -> HttpStatus.FORBIDDEN;
+            // Faz 9: hesap güvenliği uçlarında saatlik istek sınırı.
+            case "TOO_MANY_REQUESTS" -> HttpStatus.TOO_MANY_REQUESTS;
             default -> HttpStatus.BAD_REQUEST;
         };
 
+        metrics.apiError(ex.getCode(), status.value());
         Map<String, Object> body = new HashMap<>();
         body.put("code", ex.getCode());
         body.put("message", ex.getMessage());
@@ -60,6 +69,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BookingRateLimitException.class)
     public ResponseEntity<Map<String, Object>> bookingRateLimit(BookingRateLimitException ex) {
+        metrics.abuse("booking_ip_rate_limit");
         return ResponseEntity.status(429)
                 .header("Retry-After", Long.toString(ex.getRetryAfterSeconds()))
                 .body(Map.of("code", "BOOKING_RATE_LIMIT", "message", ex.getMessage(), "details", Map.of()));
