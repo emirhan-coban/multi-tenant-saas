@@ -1,6 +1,7 @@
 
 /* Appointment calendar: scrollable time grid, responsive editor and status blocks. */
 .calendar-heading { align-items: center; }
+.calendar-heading-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
 .calendar-toolbar, .calendar-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .calendar-toolbar { justify-content: space-between; }
 .calendar-controls .field { margin: 0; max-width: 190px; font-size: .75rem; }
@@ -49,5 +50,11 @@
 .appointment-detail dt { color:var(--muted); }.appointment-detail dd { margin:0; }
 .detail-status { display:inline-block;padding:6px 12px;border-radius:20px;font-size:.75rem; }
 .detail-actions { display:flex;gap:8px;flex-wrap:wrap;margin-top:20px; }
-@media(max-width:600px) { .calendar-toolbar { align-items:stretch; }.calendar-controls { gap:5px; }.calendar-controls .button { padding:9px; }.calendar-summary span:last-child { display:none; }.slot-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.calendar-heading { align-items:start; }.calendar-heading h1 { font-size:2.2rem; } }
-
+.closure-strip { display:grid; border:1px solid var(--line); border-radius:8px; background:#f2f5ee; }
+.closure-strip > div { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 14px; font-size:.78rem; }
+.closure-strip > div + div { border-top:1px solid var(--line); }
+.closure-form { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.closure-form .field { margin:0; }.closure-reason { grid-column:1/-1; }
+.closure-conflict { padding:14px; border:1px solid #d7a27e; border-radius:7px; background:#faeadf; }
+.closure-conflict ul { margin:10px 0; padding-left:20px; }
+@media(max-width:600px) { .calendar-toolbar { align-items:stretch; }.calendar-controls { gap:5px; }.calendar-controls .button { padding:9px; }.calendar-summary span:last-child { display:none; }.slot-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.calendar-heading { align-items:start; }.calendar-heading h1 { font-size:2.2rem; }.calendar-heading-actions,.calendar-heading-actions .button{width:100%;}.closure-form{grid-template-columns:1fr}.closure-reason{grid-column:1}.closure-strip>div{align-items:flex-start;flex-direction:column} }

@@ -8,7 +8,7 @@ import { positions,calendarDays,addDays,localDate,requestKey } from '../src/feat
 import { AppointmentCalendar } from '../src/components/AppointmentCalendar';
 import * as appointments from '../src/api/appointments';
 import * as management from '../src/api/management';
-vi.mock('../src/api/appointments',()=>({listAppointments:vi.fn(),availability:vi.fn(),createAppointment:vi.fn(),patchAppointment:vi.fn()}));
+vi.mock('../src/api/appointments',()=>({listAppointments:vi.fn(),availability:vi.fn(),createAppointment:vi.fn(),patchAppointment:vi.fn(),verifyVisit:vi.fn(),listClosures:vi.fn(),previewClosure:vi.fn(),createClosure:vi.fn(),deleteClosure:vi.fn()}));
 vi.mock('../src/api/management',()=>({getStaff:vi.fn(),getServices:vi.fn()}));
 const first='2030-01-07T09:00:00Z';
 const row:appointments.Appointment={id:'one',staffId:'staff',serviceId:'service',startsAt:first,endsAt:'2030-01-07T09:30:00Z',busyUntil:'2030-01-07T09:40:00Z',status:'CONFIRMED',customerName:'Test',customerPhone:'555',notes:'Örnek not',version:3};
@@ -32,6 +32,10 @@ beforeEach(()=>{
  vi.mocked(appointments.availability).mockResolvedValue(slots);
  vi.mocked(appointments.createAppointment).mockImplementation(async input=>({...row,...input}));
  vi.mocked(appointments.patchAppointment).mockResolvedValue({...row,version:4});
+ vi.mocked(appointments.verifyVisit).mockResolvedValue({appointmentId:'one',verified:true,verifiedAt:'2030-01-07T09:10:00Z'});
+ vi.mocked(appointments.listClosures).mockResolvedValue([]);
+ vi.mocked(appointments.previewClosure).mockResolvedValue({scopeName:'Tüm personel',appointments:[]});
+ vi.mocked(appointments.createClosure).mockResolvedValue({id:'closure',staffId:null,staffName:null,type:'BREAK',startsAt:'2030-01-07T09:00:00Z',endsAt:'2030-01-07T10:00:00Z',reason:null,version:0});
 });
 afterEach(cleanup);
 async function choose() {
@@ -128,6 +132,15 @@ test('details show customer and notes, cancellation includes version',async()=>{
  await screen.findByText('Randevu güncellendi.');
  expect(appointments.patchAppointment).toHaveBeenCalledWith('one',{version:3,status:'CANCELLED'});
 });
+test('linked customer visit code is verified from appointment details',async()=>{
+ vi.mocked(appointments.listAppointments).mockResolvedValue([{...row,customerId:'customer-1',visitVerifiedAt:null}]);
+ mount();fireEvent.change(screen.getByLabelText('Takvim tarihi'),{target:{value:'2030-01-07'}});
+ fireEvent.click(await screen.findByRole('button',{name:/Test randevu detayı/}));
+ fireEvent.change(screen.getByLabelText('Müşterinin ziyaret kodu'),{target:{value:'123456'}});
+ fireEvent.click(screen.getByRole('button',{name:'Kodu doğrula'}));
+ await waitFor(()=>expect(appointments.verifyVisit).toHaveBeenCalledWith('one','123456'));
+ expect(await screen.findByText('Doğrulandı')).toBeTruthy();
+});
 test('move dialog excludes itself from availability and preserves version',async()=>{
  fireEvent.click(await showExisting());fireEvent.click(screen.getByRole('button',{name:'Taşı'}));
  fireEvent.click(await screen.findByRole('button',{name:'09:00 – 09:30'}));
@@ -142,6 +155,17 @@ test('staff tabs filter blocks and week view requests seven-day range',async()=>
  expect(screen.queryByRole('button',{name:/Test randevu detayı/})).toBeNull();
  fireEvent.click(screen.getByRole('button',{name:'Hafta',exact:true}));
  await waitFor(()=>expect(vi.mocked(appointments.listAppointments).mock.calls.some(c=>(Date.parse(c[1])-Date.parse(c[0]))===7*86400000)).toBe(true));
+});
+test('closure preview must be clean before a break is added',async()=>{
+ mount();
+ const open=await screen.findByRole('button',{name:'Mola / günü kapat'});
+ await waitFor(()=>expect(open.hasAttribute('disabled')).toBe(false));
+ fireEvent.change(screen.getByLabelText('Takvim tarihi'),{target:{value:'2030-01-07'}});fireEvent.click(open);
+ fireEvent.click(screen.getByRole('button',{name:'Çakışmaları kontrol et'}));
+ await screen.findByText(/Çakışan kesin randevu yok/);
+ fireEvent.click(screen.getByRole('button',{name:'Takvimde kapat'}));
+ await waitFor(()=>expect(appointments.createClosure).toHaveBeenCalledWith(expect.objectContaining({type:'BREAK',staffId:null})));
+ expect(await screen.findByText('Mola takvime eklendi.')).toBeTruthy();
 });
 test('cancelled blocks remain visible but cannot be dragged',()=>{
  const {container}=render(<AppointmentCalendar days={['2030-01-07']} view="day" rows={[{...row,status:'CANCELLED'}]} staff={people} services={offerings} filter="" busy={false} onOpen={vi.fn()} onDrop={vi.fn()}/>);

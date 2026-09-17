@@ -1,5 +1,73 @@
 # Multi-tenant SaaS
 
+## Faz 0 - Musteri rezervasyon sozlesmesi
+
+Ilk kez gelen musterinin berber onayina, guvenilir musterinin otomatik onaya
+gittigi yeni rezervasyon akisinin karar tablosu, auth sinirlari, sabit enum/limitleri
+ve test edilmis baslangic raporu [Faz 0 teknik notlarinda](docs/phase-0-booking-contract.md).
+Makinece okunabilir hedef API: [booking-v1.openapi.yaml](docs/contracts/booking-v1.openapi.yaml).
+
+## Faz 1 - Musteri kimligi ve veri temeli
+
+Ayri musteri access/refresh tokenlari, kayit/giris/oturum yenileme, tenant bazli
+guven profili, booking request veri modeli ve `/customer` web alani tamamlandi.
+Mimari ve test kanitlari: [Faz 1 teknik notlari](docs/phase-1-customer-foundation.md).
+
+## Faz 2 - 3D musteri rezervasyonu
+
+Public dukkan ve musaitlik API'leri, Three.js koltuk secimi, musteri rezervasyon
+talebi, degerlendirme suresi, guvenilir musteri icin otomatik randevu,
+idempotency ve Redis IP limiti tamamlandi. Akis, concurrency kararlari ve test
+kanitlari: [Faz 2 teknik notlari](docs/phase-2-customer-booking.md).
+
+## Faz 3 - Berber onayi ve musteri guveni
+
+OWNER/MANAGER onay kuyrugu, atomik ve idempotent onay/red, talep suresi
+dolumu, audit/outbox, musteri sonuc takibi ve tamamlandi/no-show tabanli guven
+gecisleri tamamlandi. Kurallar ve test kanitlari:
+[Faz 3 teknik notlari](docs/phase-3-booking-approval.md).
+
+## Plan V2 Faz 4 - Dogrulanmis ilk ziyaret
+
+Musterinin hesabindan uretilen bes dakikalik ziyaret kodu, kasada OWNER/MANAGER
+tarafindan dogrulanir. Ilk randevunun tamamlanmasi ancak bu kanit varsa musteriyi
+`TRUSTED` yapar; sonraki rezervasyonlar otomatik kesinlesebilir. Kod guvenligi,
+guven gecmisi ve musteri yonetim ekrani:
+[Faz V2-4 teknik notlari](docs/phase-v2-4-visit-verification.md).
+
+## Plan V2 Faz 5 - Guvenilir musteride otomatik onay
+
+Kanitli ilk ziyaretten sonra `TRUSTED` musteri, isletme politikasi aciksa ikinci
+ve sonraki randevularini yonetici islemi olmadan kesinlestirir. Gelecek randevu,
+gunluk islem ve musteri zaman cakismasi limitleri ile guven iptali yarisi sunucuda
+korunur. Uygulama ve test ayrintilari:
+[Faz V2-5 teknik notlari](docs/phase-v2-5-auto-confirmation.md).
+
+## Plan V2 Faz 6 - Rezervasyon operasyonlari
+
+Surum kontrollu self servis iptal ve tasima, TRUSTED musteride atomik tasima,
+diger musterilerde eski randevuyu koruyan onay akisi, mola/kapali gun yonetimi,
+tenant rezervasyon ayarlari, uygulama ici bildirimler, `.ics` indirme ve
+ayristirilmis talep/iptal/ziyaret raporlari tamamlandi. Uygulama ve test
+ayrintilari: [Faz V2-6 teknik notlari](docs/phase-v2-6-booking-operations.md).
+
+## Plan V2 Faz 7 - Surumlu 3D dukkan
+
+Tenant bazli taslak/yayin/rollback sahne yonetimi, koltuk-personel eslemesi,
+public sahne manifesti, kayit aninda eski esleme kontrolu ve `WEB_3D` randevu
+kaynagi tamamlandi. Musteri Liste/3D arasinda secim taslagini kaybetmeden
+gecebilir; OWNER/MANAGER `/app/shop-design` ekranindan yayindaki dukkan
+duzenini yonetir. Mimari, API ve test kapisi:
+[Faz V2-7 teknik notlari](docs/phase-v2-7-versioned-3d-shop.md).
+
+## Musteri rezervasyonu Faz 4 - Hesap ve self servis iptal
+
+Musteri hesabinda tenantlar arasi randevu gecmisi, durum ozetleri, canli talep
+sayaci ve tenant ayarindan okunan (varsayilan 120 dakika) sinira tabi idempotent
+iptal tamamlandi. Veri modeli,
+concurrency kurallari ve test kapsami:
+[Faz 4 teknik notlari](docs/phase-4-customer-self-service.md).
+
 ## Docker ile tüm uygulamayı başlatma
 
 Mevcut `.env` dosyanızı koruyun. İlk kurulumda `.env.example` değerleriyle `.env` oluşturun.
@@ -60,13 +128,21 @@ Masaüstünde sol menü, 760px ve altında açılır menü kullanılır. Menü v
 | Adres | Sayfa | Roller |
 | --- | --- | --- |
 | `/app` | Genel Bakış | OWNER, MANAGER, STAFF |
+| `/app/booking-link` | Rezervasyon Bağlantım | OWNER, MANAGER, STAFF |
 | `/app/services` | Hizmetler | OWNER, MANAGER |
 | `/app/staff` | Personel | OWNER, MANAGER |
 | `/app/working-hours` | Çalışma Saatleri | OWNER, MANAGER |
 | `/app/appointments` | Randevular | OWNER, MANAGER |
+| `/app/booking-requests` | Onay Bekleyenler | OWNER, MANAGER |
+| `/app/booking-settings` | Rezervasyon Ayarlari | OWNER, MANAGER |
+| `/app/shop-design` | 3D Dukkan Tasarimi | OWNER, MANAGER |
 | `/app/account` | Hesabım | OWNER, MANAGER, STAFF |
 
 Hesabım mevcut üyelikleri ve aktif çalışma alanını görüntüler.
+
+## Faz 5 — Rezervasyon bağlantısını paylaşma
+
+`/app/booking-link`, access token'daki doğrulanmış tenant için `/book/{tenantSlug}` adresini üretir. Bağlantı kopyalanabilir, hazır WhatsApp mesajıyla paylaşılabilir, QR PNG olarak indirilebilir veya A4 afiş halinde yazdırılabilir. QR tarayıcıda üretilir ve üçüncü taraf servise veri göndermez. Production adresi `VITE_PUBLIC_APP_URL` ile belirlenir; ayrıntılar ve güvenlik sınırları [Faz 5 teknik notlarında](docs/phase-5-booking-link-sharing.md) yer alır.
 
 ## Hizmetler ekranı
 

@@ -56,10 +56,28 @@ public class OperationsService {
             throw new ApiException("QUOTA_EXCEEDED",resource.equals("staff")?"Personel kotanız doldu. Planınızı yükseltin.":"Aylık randevu kotanız doldu. Planınızı yükseltin.",
                 Map.of("resource",resource,"limit",limit,"used",used,"resetsAt",usage.get("resetsAt")));
     }
+    public void checkAppointmentQuota(UUID tenant) {
+        context(tenant);
+        db.queryForObject("select pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"quota:"+tenant);
+        if ("PRO".equals(plan(tenant))) return;
+        var zone = zone(tenant);
+        var month = LocalDate.now(zone).withDayOfMonth(1);
+        var from = month.atStartOfDay(zone).toInstant();
+        var to = month.plusMonths(1).atStartOfDay(zone).toInstant();
+        long used = db.queryForObject("select count(*) from appointments where tenant_id=? and created_at>=? and created_at<?",
+                Long.class, tenant, Timestamp.from(from), Timestamp.from(to));
+        if (used >= 100) throw new ApiException("QUOTA_EXCEEDED", "Aylık randevu kotanız doldu. Planınızı yükseltin.",
+                Map.of("resource", "appointments", "limit", 100, "used", used, "resetsAt", to.toString()));
+    }
     public void audit(AuthenticatedUser u,String action,String type,UUID id,Map<String,?> details) {
         context(u.tenantId());
         db.update("insert into audit_log(tenant_id,actor_id,action,entity_type,entity_id,details) values (?,?,?,?,?,cast(? as jsonb))",
             u.tenantId(),u.userId(),action,type,id,json.writeValueAsString(details));
+    }
+    public void auditCustomer(UUID tenant,UUID customerAccount,String action,String type,UUID id,Map<String,?> details) {
+        context(tenant);
+        db.update("insert into audit_log(tenant_id,customer_actor_id,action,entity_type,entity_id,details) values (?,?,?,?,?,cast(? as jsonb))",
+            tenant,customerAccount,action,type,id,json.writeValueAsString(details));
     }
     public void appointmentCreated(AuthenticatedUser u, Appointment a) {
         audit(u,"APPOINTMENT_CREATED","appointment",a.getId(),Map.of("startsAt",a.getStartsAt().toString()));
@@ -98,16 +116,16 @@ public class OperationsService {
         context(u.tenantId()); range(from,to);
         if(page<0 || page>10000) throw new ApiException("INVALID_RANGE","Geçersiz sayfa");
         return db.queryForList("""
-            select a.id,a.actor_id as "actorId",u.full_name as "actorName",a.action,a.entity_type as "entityType",
+            select a.id,coalesce(a.actor_id,a.customer_actor_id) as "actorId",coalesce(u.full_name,c.full_name) as "actorName",a.action,a.entity_type as "entityType",
                    a.entity_id as "entityId",a.details::text as details,a.created_at as "createdAt"
-            from audit_log a left join users u on u.id=a.actor_id
-            where a.tenant_id=? and a.created_at>=? and a.created_at<? and (?::uuid is null or a.actor_id=?)
+            from audit_log a left join users u on u.id=a.actor_id left join customer_accounts c on c.id=a.customer_actor_id
+            where a.tenant_id=? and a.created_at>=? and a.created_at<? and (?::uuid is null or coalesce(a.actor_id,a.customer_actor_id)=?)
             order by a.created_at desc,a.id desc limit 50 offset ?
             """,u.tenantId(),Timestamp.from(from),Timestamp.from(to),actor,actor,page*50);
     }
     public List<Map<String,Object>> actors(AuthenticatedUser u) {
         context(u.tenantId());
-        return db.queryForList("select distinct a.actor_id as id,u.full_name as name from audit_log a left join users u on u.id=a.actor_id where a.tenant_id=? order by name",u.tenantId());
+        return db.queryForList("select distinct coalesce(a.actor_id,a.customer_actor_id) as id,coalesce(u.full_name,c.full_name) as name from audit_log a left join users u on u.id=a.actor_id left join customer_accounts c on c.id=a.customer_actor_id where a.tenant_id=? order by name",u.tenantId());
     }
     public Map<String,Object> summary(AuthenticatedUser u,Instant from,Instant to) {
         context(u.tenantId()); range(from,to);
@@ -123,6 +141,19 @@ public class OperationsService {
             where a.tenant_id=? and a.starts_at>=? and a.starts_at<? and a.status<>'CANCELLED'
             group by s.id,s.name order by count(*) desc,s.name
             """,u.tenantId(),Timestamp.from(from),Timestamp.from(to));
+        var demand=db.queryForMap("""
+            select count(*) as "requestCount",
+              count(*) filter(where decision='AUTO_CONFIRM') as "autoConfirmedCount",
+              count(*) filter(where status='APPROVED') as "approvedRequestCount",
+              count(*) filter(where status='REJECTED') as "rejectedRequestCount",
+              count(*) filter(where status='EXPIRED') as "expiredRequestCount",
+              count(*) filter(where status='CANCELLED') as "cancelledRequestCount"
+            from booking_requests where tenant_id=? and created_at>=? and created_at<?
+            """,u.tenantId(),Timestamp.from(from),Timestamp.from(to));
+        long noShow=db.queryForObject("select count(*) from appointments where tenant_id=? and starts_at>=? and starts_at<? and status='NO_SHOW'",
+            Long.class,u.tenantId(),Timestamp.from(from),Timestamp.from(to));
+        totals.putAll(demand);
+        totals.put("noShowCount",noShow);
         totals.put("services",services); totals.put("popularService",services.isEmpty()?"—":services.getFirst().get("name"));
         totals.put("timezone",zone(u.tenantId()).getId()); return totals;
     }

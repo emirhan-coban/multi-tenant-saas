@@ -7,7 +7,7 @@ import { UsageCard, PlanScreen, ReportsScreen, AuditScreen, NotificationsScreen,
 import { api } from '../src/api/client';
 import { errorMessage } from '../src/api/errors';
 import type { ReactNode } from 'react';
-vi.mock('../src/api/client', () => ({ api: { get: vi.fn(), patch: vi.fn() } }));
+vi.mock('../src/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 const usage = { plan: 'FREE', staff: { used: 2, limit: 2 }, appointments: { used: 95, limit: 100 }, resetsAt: '2030-02-01T00:00:00Z', timezone: 'Europe/Istanbul', requestsPerMinute: 60 };
 function mount(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,11 +60,11 @@ test('audit supports actor filter and displays immutable history', async () => {
   await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/audit-log', expect.objectContaining({ params: expect.objectContaining({ actorId: 'u1' }) })));
 });
 test('notification preference saves and reloads persisted value', async () => {
-  vi.mocked(api.get).mockResolvedValue({ data: { remindersEnabled: true } });
+  vi.mocked(api.get).mockImplementation(async path => ({ data: path === '/api/notifications/in-app' ? [] : path.endsWith('email-status') ? {enabled:false,configured:false,ready:false,mode:'test'} : { remindersEnabled: true } }));
   vi.mocked(api.patch).mockResolvedValue({ data: { remindersEnabled: false } });
   mount(<NotificationsScreen />);
   const checkbox = await screen.findByRole('checkbox');
-  vi.mocked(api.get).mockResolvedValue({ data: { remindersEnabled: false } });
+  vi.mocked(api.get).mockImplementation(async path => ({ data: path === '/api/notifications/in-app' ? [] : path.endsWith('email-status') ? {enabled:false,configured:false,ready:false,mode:'test'} : { remindersEnabled: false } }));
   fireEvent.click(checkbox);
   await screen.findByText('Tercihiniz kaydedildi.');
   expect(api.patch).toHaveBeenCalledWith('/api/notification-preferences', { remindersEnabled: false });
@@ -83,13 +83,13 @@ test('quota feedback has a dismissible upgrade action', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Kapat' })); expect(screen.queryByRole('alert')).toBeNull();
 });
 test('failed notification save is visible and preserves last confirmed preference', async () => {
-  vi.mocked(api.get).mockResolvedValue({ data: { remindersEnabled: true } });
+  vi.mocked(api.get).mockImplementation(async path => ({ data: path === '/api/notifications/in-app' ? [] : path.endsWith('email-status') ? {enabled:false,configured:false,ready:false,mode:'test'} : { remindersEnabled: true } }));
   vi.mocked(api.patch).mockRejectedValue(new Error('Offline'));
   mount(<NotificationsScreen />); const checkbox = await screen.findByRole('checkbox'); fireEvent.click(checkbox);
   await screen.findByRole('alert'); expect((checkbox as HTMLInputElement).checked).toBe(true);
 });
 test('email status explains safe test mode without exposing credentials', async () => {
-  vi.mocked(api.get).mockImplementation(async path => ({data: path.endsWith('email-status') ? {enabled:false,configured:false,ready:false,mode:'test'} : {remindersEnabled:true}}));
+  vi.mocked(api.get).mockImplementation(async path => ({data: path === '/api/notifications/in-app' ? [] : path.endsWith('email-status') ? {enabled:false,configured:false,ready:false,mode:'test'} : {remindersEnabled:true}}));
   mount(<NotificationsScreen />);
   await screen.findByText('Gmail gönderimi kapalı veya hesap bilgileri eksik.');
   expect(screen.getByText(/Test modu: yalnızca gönderici Gmail adresine/)).toBeTruthy();

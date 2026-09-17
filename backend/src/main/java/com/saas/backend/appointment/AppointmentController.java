@@ -13,7 +13,10 @@ import java.util.*;
 @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
 public class AppointmentController {
     private final AppointmentService service;
-    public AppointmentController(AppointmentService service) { this.service=service; }
+    private final com.saas.backend.booking.VisitVerificationService visits;
+    public AppointmentController(AppointmentService service, com.saas.backend.booking.VisitVerificationService visits) {
+        this.service=service; this.visits=visits;
+    }
     @PostMapping(value="/appointments",produces=MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> create(@AuthenticationPrincipal AuthenticatedUser user,
             @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody AppointmentDtos.Create body) {
@@ -34,5 +37,14 @@ public class AppointmentController {
             @RequestParam UUID staffId, @RequestParam UUID serviceId, @RequestParam LocalDate date,
             @RequestParam(required=false) UUID appointmentId) {
         return service.availability(user,staffId,serviceId,date,appointmentId);
+    }
+
+    @PostMapping("/appointments/{id}/visit-verification")
+    public com.saas.backend.booking.VisitVerificationDtos.Status verifyVisit(
+            @AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id,
+            @Valid @RequestBody com.saas.backend.booking.VisitVerificationDtos.Verify body) {
+        var attempt = visits.verify(user, id, body.code());
+        if (!attempt.success()) throw new com.saas.backend.auth.ApiException(attempt.errorCode(), attempt.message());
+        return attempt.status();
     }
 }

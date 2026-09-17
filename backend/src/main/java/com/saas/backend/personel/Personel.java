@@ -32,6 +32,9 @@ public class Personel {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "chair_key", nullable = false)
+    private String chairKey = "chair-" + UUID.randomUUID();
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

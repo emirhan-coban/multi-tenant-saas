@@ -110,11 +110,18 @@ public class AuthService {
         return new AuthResponse(token, refreshToken, membershipInfos);
     }
 
-        @Transactional(readOnly = true)
-        public AuthResponse refresh(String refreshToken) {
-        var claims = jwtService.parseRefreshToken(refreshToken);
-        var userId = java.util.UUID.fromString(claims.getSubject());
-        var tenantId = java.util.UUID.fromString(claims.get("tenantId", String.class));
+    @Transactional(readOnly = true)
+    public AuthResponse refresh(String refreshToken) {
+        final io.jsonwebtoken.Claims claims;
+        final java.util.UUID userId;
+        final java.util.UUID tenantId;
+        try {
+            claims = jwtService.parseRefreshToken(refreshToken);
+            userId = java.util.UUID.fromString(claims.getSubject());
+            tenantId = java.util.UUID.fromString(claims.get("tenantId", String.class));
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException ex) {
+            throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
+        }
         var memberships = membershipRepository.findByUserId(userId);
         var membership = memberships.stream()
             .filter(item -> item.getTenant().getId().equals(tenantId))
@@ -128,7 +135,7 @@ public class AuthService {
                 item.getTenant().getId(), item.getTenant().getName(), item.getRole()))
             .toList();
         return new AuthResponse(accessToken, newRefreshToken, membershipInfos);
-        }
+    }
 
     private String generateUniqueSlug(String tenantName) {
         String base = slugify(tenantName);

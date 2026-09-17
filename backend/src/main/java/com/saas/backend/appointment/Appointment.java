@@ -17,6 +17,7 @@ public class Appointment {
     private String customerPhone;
     private String customerEmail;
     @Column(nullable=false) private boolean emailNotifications;
+    @Column(nullable=false) private String source = "STAFF";
     @Column(nullable=false) private Instant startsAt;
     @Column(nullable=false) private Instant endsAt;
     @Column(nullable=false) private Instant busyUntil;

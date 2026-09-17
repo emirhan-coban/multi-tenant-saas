@@ -15,6 +15,7 @@ export function AppScreen() {
     <div className="dashboard-grid">
       <Card><p className="eyebrow">ÇALIŞMA ALANINDAKİ ROLÜNÜZ</p><h2>{roleLabels[role]}</h2><p className="muted">Menünüz, bu işletmedeki yetkilerinize göre düzenlenir.</p></Card>
       <Card><p className="eyebrow">ÜYELİKLERİNİZ</p><h2>{session?.memberships.length}</h2><p className="muted">Hesabınıza bağlı çalışma alanı</p><Link className="text-link" to="/app/account">Hesap bilgilerini görüntüle <span aria-hidden="true">→</span></Link></Card>
+      <Card><p className="eyebrow">MÜŞTERİ REZERVASYONU</p><h2>Bağlantınız hazır</h2><p className="muted">Doğru işletmenin sayfasını QR kodla veya mesajla paylaşın.</p><Link className="text-link" to="/app/booking-link">Paylaşım merkezini aç <span aria-hidden="true">→</span></Link></Card>
     </div>
     {canAccess(role, managementRoles) && <div className="operations-section"><UsageCard /></div>}
   </>;

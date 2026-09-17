@@ -64,6 +64,11 @@ public class AppointmentService {
         a.setTenantId(user.tenantId()); a.setStaffId(person.getId()); a.setServiceId(service.getId());
         a.setDurationMin(service.getDurationMin()); a.setBufferMin(service.getBufferMin());
         a.setPriceAmount(service.getPrice());
+        var zone=zone(user);
+        var localDate=request.startsAt().atZone(zone).toLocalDate();
+        em.createNativeQuery("select pg_advisory_xact_lock(hashtextextended(:scope,0))")
+            .setParameter("scope",com.saas.backend.booking.BookingService.slotLock(request.staffId(),localDate)).getSingleResult();
+        expireHolds(user.tenantId());
         validateSlot(user,a,request.startsAt());
         times(a,request.startsAt());
         a.setCustomerName(request.customerName()); a.setCustomerPhone(request.customerPhone()); a.setNotes(request.notes());
@@ -74,7 +79,7 @@ public class AppointmentService {
         appointments.saveAndFlush(a);
         operations.appointmentCreated(user,a);
         customerEmail.queue(user,a,"CUSTOMER_CONFIRMATION");
-        String result=json.writeValueAsString(AppointmentDtos.response(a));
+        String result=json.writeValueAsString(response(a));
         em.createNativeQuery("insert into idempotency_keys(tenant_id,user_id,key,request_hash,response) values (:tenant,:user,:key,:hash,:response)")
             .setParameter("tenant",user.tenantId()).setParameter("user",user.userId()).setParameter("key",key)
             .setParameter("hash",hash).setParameter("response",result).executeUpdate();
@@ -93,24 +98,101 @@ public class AppointmentService {
             if (request.status()!=null && request.status()!=Appointment.Status.CONFIRMED)
                 throw new ApiException("INVALID_TRANSITION","Taşıma ve sonuçlandırmayı ayrı işlemlerle yapın");
             person(user,a.getStaffId()); service(user,a.getServiceId());
+            var zone=zone(user);
+            var localDate=request.startsAt().atZone(zone).toLocalDate();
+            em.createNativeQuery("select pg_advisory_xact_lock(hashtextextended(:scope,0))")
+                .setParameter("scope",com.saas.backend.booking.BookingService.slotLock(a.getStaffId(),localDate)).getSingleResult();
+            expireHolds(user.tenantId());
             validateSlot(user,a,request.startsAt());
             times(a,request.startsAt());
         }
         if (request.status()!=null) {
             if ((request.status()==Appointment.Status.COMPLETED || request.status()==Appointment.Status.NO_SHOW)
-                    && a.getStartsAt().isAfter(Instant.now()))
-                throw new ApiException("INVALID_TRANSITION","Gelecekteki randevu henüz sonuçlandırılamaz");
+                    && a.getEndsAt().isAfter(Instant.now()))
+                throw new ApiException("INVALID_TRANSITION","Randevu bitiş saatinden önce sonuçlandırılamaz");
             a.setStatus(request.status());
         }
         if (request.notes()!=null) a.setNotes(request.notes());
         appointments.flush(); // @Version catches a second writer even if both read the same version.
+        var trust=updateCustomerTrust(user,a,request.status());
         operations.audit(user,request.startsAt()!=null?"APPOINTMENT_RESCHEDULED":"APPOINTMENT_"+a.getStatus(),"appointment",id,
             Map.of("status",a.getStatus().name(),"startsAt",a.getStartsAt().toString(),"version",a.getVersion()));
+        if(trust!=null && trust.changed()) operations.audit(user,"CUSTOMER_TRUST_AUTOMATED","tenant_customer",a.getCustomerId(),
+            Map.of("appointmentId",a.getId(),"appointmentStatus",a.getStatus().name(),"trustState",trust.state()));
         if(request.startsAt()!=null) operations.enqueue(user,a);
         if(request.startsAt()!=null) customerEmail.queue(user,a,"CUSTOMER_RESCHEDULED");
         else if(a.getStatus()==Appointment.Status.CANCELLED) customerEmail.queue(user,a,"CUSTOMER_CANCELLED");
-        return AppointmentDtos.response(a);
+        return response(a);
     }
+
+    private TrustOutcome updateCustomerTrust(AuthenticatedUser user, Appointment appointment, Appointment.Status requestedStatus) {
+        if(appointment.getCustomerId()==null || (requestedStatus!=Appointment.Status.COMPLETED && requestedStatus!=Appointment.Status.NO_SHOW)) return null;
+        String before=(String)em.createNativeQuery("select trust_state from tenant_customers where tenant_id=:tenant and id=:customer for update")
+            .setParameter("tenant",appointment.getTenantId()).setParameter("customer",appointment.getCustomerId()).getSingleResult();
+        String after=before;
+        String reason=null;
+        if(requestedStatus==Appointment.Status.COMPLETED) {
+            Number verified=(Number)em.createNativeQuery("select count(*) from visit_verifications where tenant_id=:tenant and appointment_id=:appointment and customer_id=:customer and verified_at is not null")
+                .setParameter("tenant",appointment.getTenantId()).setParameter("appointment",appointment.getId())
+                .setParameter("customer",appointment.getCustomerId()).getSingleResult();
+            boolean earnsTrust="NEW".equals(before) && verified.longValue()==1;
+            if(earnsTrust){ after="TRUSTED"; reason="VERIFIED_COMPLETED_VISIT"; }
+            em.createNativeQuery("""
+                update tenant_customers set completed_count=completed_count+1,
+                  trust_state=case when :earns then 'TRUSTED' else trust_state end,
+                  trusted_at=case when :earns then now() else trusted_at end,
+                  trusted_by=case when :earns then :actor else trusted_by end,
+                  trust_reason=case when :earns then 'VERIFIED_COMPLETED_VISIT' else trust_reason end,
+                  evidence_appointment_id=case when :earns then :appointment else evidence_appointment_id end,
+                  updated_at=now(),version=version+1
+                where tenant_id=:tenant and id=:customer
+                """).setParameter("earns",earnsTrust).setParameter("actor",user.userId())
+                .setParameter("appointment",appointment.getId()).setParameter("tenant",appointment.getTenantId())
+                .setParameter("customer",appointment.getCustomerId()).executeUpdate();
+        } else {
+            if(!"BLOCKED".equals(before) && !"REVIEW_REQUIRED".equals(before)){ after="REVIEW_REQUIRED"; reason="NO_SHOW"; }
+            em.createNativeQuery("""
+                update tenant_customers set no_show_count=no_show_count+1,
+                  trust_state=case when trust_state='BLOCKED' then trust_state else 'REVIEW_REQUIRED' end,
+                  blocked_reason=case when trust_state='BLOCKED' then blocked_reason else null end,
+                  trusted_at=case when trust_state='BLOCKED' then trusted_at else null end,
+                  trusted_by=case when trust_state='BLOCKED' then trusted_by else null end,
+                  trust_reason=case when trust_state='BLOCKED' then trust_reason else 'NO_SHOW' end,
+                  evidence_appointment_id=case when trust_state='BLOCKED' then evidence_appointment_id else null end,
+                  updated_at=now(),version=version+1
+                where tenant_id=:tenant and id=:customer
+                """).setParameter("tenant",appointment.getTenantId()).setParameter("customer",appointment.getCustomerId()).executeUpdate();
+        }
+        if(!before.equals(after)) em.createNativeQuery("""
+            insert into customer_trust_events(tenant_id,customer_id,from_state,to_state,reason,actor_id,evidence_appointment_id)
+            values (:tenant,:customer,:before,:after,:reason,:actor,:appointment)
+            """).setParameter("tenant",appointment.getTenantId()).setParameter("customer",appointment.getCustomerId())
+            .setParameter("before",before).setParameter("after",after).setParameter("reason",reason)
+            .setParameter("actor",user.userId()).setParameter("appointment",appointment.getId()).executeUpdate();
+        em.flush();
+        return new TrustOutcome(after,!before.equals(after));
+    }
+
+    private AppointmentDtos.Response response(Appointment a) {
+        Instant verifiedAt=null;
+        if(a.getCustomerId()!=null){
+            var rows=em.createNativeQuery("select verified_at from visit_verifications where tenant_id=:tenant and appointment_id=:appointment and verified_at is not null")
+                .setParameter("tenant",a.getTenantId()).setParameter("appointment",a.getId()).getResultList();
+            if(!rows.isEmpty()) verifiedAt=toInstant(rows.getFirst());
+        }
+        return new AppointmentDtos.Response(a.getId(),a.getStaffId(),a.getServiceId(),a.getStartsAt(),a.getEndsAt(),
+            a.getBusyUntil(),a.getStatus(),a.getCustomerName(),a.getCustomerPhone(),a.getNotes(),a.getVersion(),
+            a.getCustomerEmail(),a.isEmailNotifications(),a.getCustomerId(),verifiedAt);
+    }
+
+    private Instant toInstant(Object value){
+        if(value instanceof Instant instant)return instant;
+        if(value instanceof OffsetDateTime dateTime)return dateTime.toInstant();
+        if(value instanceof java.sql.Timestamp timestamp)return timestamp.toInstant();
+        throw new IllegalStateException("Unsupported timestamp value");
+    }
+
+    private record TrustOutcome(String state,boolean changed){}
 
     @Transactional(readOnly=true)
     public List<AppointmentDtos.Response> list(AuthenticatedUser user, UUID staff, Instant from, Instant to) {
@@ -118,7 +200,7 @@ public class AppointmentService {
         if (from==null || to==null || !from.isBefore(to) || Duration.between(from,to).compareTo(Duration.ofDays(93))>0)
             throw new ApiException("INVALID_RANGE","Tarih aralığı en fazla 93 gün olmalı");
         if (staff!=null) person(user,staff);
-        return appointments.list(user.tenantId(),staff,from,to).stream().map(AppointmentDtos::response).toList();
+        return appointments.list(user.tenantId(),staff,from,to).stream().map(this::response).toList();
     }
 
     @Transactional(readOnly=true)
@@ -171,9 +253,31 @@ public class AppointmentService {
         var leave=em.createQuery("select t from IzinKaydi t where t.tenant.id=:tenant and t.personel.id=:staff and t.startsAt<:to and t.endsAt>:from",IzinKaydi.class)
             .setParameter("tenant",user.tenantId()).setParameter("staff",staff).setParameter("from",from).setParameter("to",to)
             .getResultList().stream().map(t -> new ZamanAraligi(t.getStartsAt(),t.getEndsAt())).toList();
+        var blocked=new ArrayList<>(leave);
+        for(Object value:em.createNativeQuery("""
+                select starts_at,ends_at from calendar_closures
+                where tenant_id=:tenant and (staff_id is null or staff_id=:staff)
+                  and starts_at<:to and ends_at>:from
+                """).setParameter("tenant",user.tenantId()).setParameter("staff",staff)
+                .setParameter("from",from).setParameter("to",to).getResultList()) {
+            Object[] row=(Object[])value;
+            blocked.add(new ZamanAraligi(asInstant(row[0]),asInstant(row[1])));
+        }
         var busy=appointments.busy(user.tenantId(),staff,from,to).stream().filter(a -> !a.getId().equals(exclude))
             .map(a -> new ZamanAraligi(a.getStartsAt(),a.getBusyUntil())).toList();
-        return calculator.hesapla(hours,leave,busy,duration,buffer);
+        return calculator.hesapla(hours,blocked,busy,duration,buffer);
+    }
+
+    private void expireHolds(UUID tenantId) {
+        em.createNativeQuery("update booking_requests set status='EXPIRED',hold_expires_at=null,updated_at=now(),version=version+1 where tenant_id=:tenant and status='PENDING_APPROVAL' and hold_expires_at<=now()")
+            .setParameter("tenant",tenantId).executeUpdate();
+    }
+
+    private static Instant asInstant(Object value) {
+        if(value instanceof Instant instant) return instant;
+        if(value instanceof OffsetDateTime dateTime) return dateTime.toInstant();
+        if(value instanceof java.sql.Timestamp timestamp) return timestamp.toInstant();
+        throw new IllegalStateException("Unsupported timestamp value: "+value);
     }
 
     private Personel person(AuthenticatedUser user, UUID id) {

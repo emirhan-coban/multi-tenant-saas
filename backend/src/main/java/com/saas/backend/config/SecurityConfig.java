@@ -10,6 +10,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.http.MediaType;
 import java.util.List;
 
 @Configuration
@@ -17,9 +18,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final CustomerJwtAuthFilter customerJwtAuthFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, CustomerJwtAuthFilter customerJwtAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.customerJwtAuthFilter = customerJwtAuthFilter;
     }
 
     @Bean
@@ -40,12 +43,25 @@ public class SecurityConfig {
                 }))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, exception) -> {
+                    response.setStatus(401);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"code\":\"UNAUTHORIZED\",\"message\":\"Geçerli bir access token gerekli.\"}");
+                }).accessDeniedHandler((request, response, exception) -> {
+                    response.setStatus(403);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"code\":\"FORBIDDEN\",\"message\":\"Bu işlem için yetkiniz yok.\"}");
+                }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/health").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/customer/v1/auth/**", "/api/public/**", "/api/health").permitAll()
+                        .requestMatchers("/api/customer/v1/**").hasRole("CUSTOMER")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(new com.saas.backend.operations.RateLimitFilter(limiter,operations), JwtAuthFilter.class);
+                .addFilterAfter(customerJwtAuthFilter, JwtAuthFilter.class)
+                .addFilterAfter(new com.saas.backend.operations.RateLimitFilter(limiter,operations), CustomerJwtAuthFilter.class);
         return http.build();
     }
 }

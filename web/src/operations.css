@@ -16,6 +16,14 @@
 .operations-table pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 400px; }
 .notification-toggle { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
 .notification-toggle input { width: 22px; height: 22px; accent-color: #216d58; }
+.notification-inbox { border-block:1px solid #dce4df; }
+.notification-inbox > div:first-child { padding:24px 0 12px; }
+.notification-inbox > button { position:relative; width:100%; display:grid; grid-template-columns:minmax(180px,.6fr) minmax(0,1fr); gap:20px; padding:18px 38px 18px 0; border:0; border-top:1px solid #dce4df; color:inherit; background:transparent; text-align:left; }
+.notification-inbox > button.is-read { opacity:.62; }
+.notification-inbox button span { display:grid; gap:5px; }.notification-inbox button small{color:var(--muted)}.notification-inbox button p{margin:0;line-height:1.5}.notification-inbox button i{position:absolute;right:0;top:18px;color:var(--green);font-size:.68rem;font-style:normal;font-weight:700}
+.booking-settings-form { max-width:860px; padding:28px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+.settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin:26px 0 12px; }
+@media(max-width:650px){.settings-grid{grid-template-columns:1fr}.booking-settings-form{padding:20px 16px}.notification-inbox>button{grid-template-columns:1fr;gap:8px}}
 .operations-feedback { position: fixed; z-index: 1000; bottom: 24px; right: 24px; width: min(440px, calc(100vw - 48px)); padding: 20px; background: #fff9e9; color: #493719; border: 1px solid #e1c778; box-shadow: 0 10px 36px #142b1826; border-radius: 14px; }
 .operations-feedback .button { margin-left: 12px; }
 .panel-sidebar { overflow-y: auto; max-height: 100dvh; }
