@@ -6,10 +6,13 @@ import { errorMessage } from '../api/errors';
 import { useTenant } from '../store/tenant';
 import { Button, Card } from '../components/ui';
 import '../operations.css';
+import { NotificationPermissionCard } from '../components/NotificationPermissionCard';
+import { InstallPrompt } from '../components/InstallPrompt';
 
 type Counter = { used: number; limit: number | null };
 type Usage = { plan: string; staff: Counter; appointments: Counter; resetsAt: string; timezone: string; requestsPerMinute: number };
-type Summary = { appointmentCount: number; completedCount: number; revenue: number; unknownPriceCount: number; popularService: string; services: { name: string; count: number }[] };
+type Summary = { appointmentCount: number; completedCount: number; revenue: number; unknownPriceCount: number; popularService: string; services: { name: string; count: number }[]; requestCount: number; autoConfirmedCount: number; approvedRequestCount: number; rejectedRequestCount: number; expiredRequestCount: number; cancelledRequestCount: number; noShowCount: number };
+type InAppNotification = { id: string; eventType: string; title: string; body: string; relatedType: string | null; relatedId: string | null; readAt: string | null; createdAt: string };
 type Utilization = { id: string; name: string; availableMinutes: number; occupiedMinutes: number; percent: number };
 type Audit = { id: string; actorName: string; action: string; entityType: string; entityId: string; createdAt: string; details: string };
 function useEndpoint<T>(path: string, params?: object, enabled = true) {
@@ -72,6 +75,9 @@ export function ReportsScreen() {
       {summary.isError && <Failure error={summary.error} />}{utilization.isError && <Failure error={utilization.error} />}
       {summary.data && <><div className="dashboard-grid report-metrics">
         <Card><p>Toplam randevu</p><h2>{summary.data.appointmentCount}</h2><small>İptaller dahil · {summary.data.completedCount} tamamlandı</small></Card>
+        <Card><p>Rezervasyon talepleri</p><h2>{summary.data.requestCount}</h2><small>{summary.data.autoConfirmedCount} otomatik · {summary.data.approvedRequestCount} onaylı</small></Card>
+        <Card><p>İptal edilen talepler</p><h2>{summary.data.cancelledRequestCount}</h2><small>{summary.data.rejectedRequestCount} reddedildi · {summary.data.expiredRequestCount} süresi doldu</small></Card>
+        <Card><p>Gerçekleşen ziyaretler</p><h2>{summary.data.completedCount}</h2><small>{summary.data.noShowCount} gelmedi kaydı</small></Card>
         <Card><p>Tamamlanan randevulardan ciro</p><h2>{Number(summary.data.revenue).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</h2><small>Randevu anındaki fiyat; ödeme tahsilatı değildir.</small></Card>
         <Card><p>En çok tercih edilen hizmet</p><h2>{summary.data.popularService}</h2><small>İptaller hariç</small></Card></div>
         {summary.data.unknownPriceCount > 0 && <p className="info-notice">{summary.data.unknownPriceCount} eski randevunun geçmiş fiyatı bilinmediği için ciroya dahil edilmedi.</p>}
@@ -101,15 +107,23 @@ export function AuditScreen() {
 }
 export function NotificationsScreen() {
   const query = useEndpoint<{ remindersEnabled: boolean }>('/api/notification-preferences');
+  const inbox = useEndpoint<InAppNotification[]>('/api/notifications/in-app');
   const { tenantId } = useTenant();
   const client = useQueryClient();
   const mutation = useMutation({ mutationFn: async (enabled: boolean) => (await api.patch('/api/notification-preferences', { remindersEnabled: enabled })).data,
     onSuccess: () => { void client.invalidateQueries({ queryKey: ['tenant', tenantId, 'operations', '/api/notification-preferences'] }); } });
+  const read = useMutation({mutationFn:async(id:string)=>(await api.post<InAppNotification>(`/api/notifications/in-app/${id}/read`)).data,
+    onSuccess:item=>client.setQueryData<InAppNotification[]>(['tenant',tenantId,'operations','/api/notifications/in-app',undefined],rows=>rows?.map(row=>row.id===item.id?item:row))});
   return <><div className="page-heading"><p className="eyebrow">TERCİHLER</p><h1>Bildirimler</h1><p>Bu işletmedeki hesabınıza ait hatırlatma tercihi.</p></div><Card>
     {query.isPending && <p role="status">Tercihler yükleniyor…</p>}{query.isError && <Failure error={query.error} />}
     {query.data && <label className="notification-toggle"><input type="checkbox" checked={query.data.remindersEnabled} disabled={mutation.isPending || query.isFetching} onChange={e => mutation.mutate(e.target.checked)} /><span>Oluşturduğum randevular için hatırlatma gönder</span></label>}
     {mutation.isError && <Failure error={mutation.error} />}{mutation.isSuccess && <p role="status">Tercihiniz kaydedildi.</p>}
-    <p className="muted">Bu tercih yalnızca kendi hesabınızın konsol hatırlatmalarını kontrol eder. Müşteri e-postaları randevu formundaki ayrı seçimle açılır. SMS gönderilmez.</p></Card><CustomerEmailStatus /></>;
+    <p className="muted">Bu tercih yalnızca kendi hesabınızın konsol hatırlatmalarını kontrol eder. Müşteri e-postaları randevu formundaki ayrı seçimle açılır. SMS gönderilmez.</p></Card>
+    <div className="operations-section staff-push-row"><NotificationPermissionCard audience="staff" /><InstallPrompt context="staff" /></div>
+    <section className="operations-section notification-inbox"><div><p className="eyebrow">İŞLEM BİLDİRİMLERİ</p><h2>Gelen kutusu</h2></div>
+      {inbox.isPending&&<p role="status">Bildirimler yükleniyor...</p>}{inbox.isError&&<Failure error={inbox.error}/>} {!inbox.isPending&&!inbox.data?.length&&<p className="muted">Henüz işlem bildirimi yok.</p>}
+      {inbox.data?.map(item=><button key={item.id} className={item.readAt?'is-read':''} disabled={read.isPending} onClick={()=>{if(!item.readAt)read.mutate(item.id);}}><span><strong>{item.title}</strong><small>{new Date(item.createdAt).toLocaleString('tr-TR')}</small></span><p>{item.body}</p>{!item.readAt&&<i>Yeni</i>}</button>)}
+    </section><CustomerEmailStatus /></>;
 }
 function CustomerEmailStatus() {
   const { role } = useTenant();

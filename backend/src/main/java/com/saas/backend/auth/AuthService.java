@@ -23,14 +23,23 @@ public class AuthService {
     private final MembershipRepository membershipRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SessionRevocationService sessions;
+    private final org.springframework.jdbc.core.JdbcTemplate db;
+    private final com.saas.backend.account.KvkkService kvkk;
 
     public AuthService(
         UserRepository userRepository,
         TenantRepository tenantRepository,
         MembershipRepository membershipRepository,
         PasswordEncoder passwordEncoder,
-        JwtService jwtService
+        JwtService jwtService,
+        SessionRevocationService sessions,
+        org.springframework.jdbc.core.JdbcTemplate db,
+        com.saas.backend.account.KvkkService kvkk
     ) {
+        this.sessions = sessions;
+        this.db = db;
+        this.kvkk = kvkk;
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.membershipRepository = membershipRepository;
@@ -53,7 +62,13 @@ public class AuthService {
         Tenant tenant = new Tenant();
         tenant.setName(request.tenantName());
         tenant.setSlug(generateUniqueSlug(request.tenantName()));
-        tenantRepository.save(tenant);
+        tenantRepository.saveAndFlush(tenant);
+        // Faz 9: kısıtlı veritabanı rolünde RLS gerçekten uygulanır. Yeni işletme satırı
+        // yalnızca kendi bağlamında okunabilir; kaydın devamı için bağlam hemen kurulur.
+        db.queryForObject("select set_config('app.current_tenant', ?, true)", String.class, tenant.getId().toString());
+
+        // KVKK: kayıt anında yürürlükteki aydınlatma metninin sürümü işlenir.
+        kvkk.recordConsent(user.getId(), false);
 
         Membership membership = new Membership();
         membership.setUser(user);
@@ -110,11 +125,20 @@ public class AuthService {
         return new AuthResponse(token, refreshToken, membershipInfos);
     }
 
-        @Transactional(readOnly = true)
-        public AuthResponse refresh(String refreshToken) {
-        var claims = jwtService.parseRefreshToken(refreshToken);
-        var userId = java.util.UUID.fromString(claims.getSubject());
-        var tenantId = java.util.UUID.fromString(claims.get("tenantId", String.class));
+    @Transactional(readOnly = true)
+    public AuthResponse refresh(String refreshToken) {
+        final io.jsonwebtoken.Claims claims;
+        final java.util.UUID userId;
+        final java.util.UUID tenantId;
+        try {
+            claims = jwtService.parseRefreshToken(refreshToken);
+            userId = java.util.UUID.fromString(claims.getSubject());
+            tenantId = java.util.UUID.fromString(claims.get("tenantId", String.class));
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException ex) {
+            throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
+        }
+        if (sessions.staffTokenRevoked(userId, claims))
+            throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
         var memberships = membershipRepository.findByUserId(userId);
         var membership = memberships.stream()
             .filter(item -> item.getTenant().getId().equals(tenantId))
@@ -128,13 +152,15 @@ public class AuthService {
                 item.getTenant().getId(), item.getTenant().getName(), item.getRole()))
             .toList();
         return new AuthResponse(accessToken, newRefreshToken, membershipInfos);
-        }
+    }
 
     private String generateUniqueSlug(String tenantName) {
         String base = slugify(tenantName);
         String slug = base;
         int counter = 1;
-        while (tenantRepository.existsBySlug(slug)) {
+        // Faz 9: uygulama rolü RLS nedeniyle diğer işletmelerin satırlarını göremez;
+        // benzersizlik kontrolü güvenli fonksiyonla yapılır.
+        while (Boolean.TRUE.equals(db.queryForObject("select tenant_slug_taken(?)", Boolean.class, slug))) {
             slug = base + "-" + counter;
             counter++;
         }

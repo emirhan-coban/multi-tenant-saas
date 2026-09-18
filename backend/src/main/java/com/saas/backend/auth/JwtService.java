@@ -37,9 +37,18 @@ public class JwtService {
         return generateToken(userId, tenantId, role, refreshExpirationDays, ChronoUnit.DAYS, "refresh");
     }
 
+    public String generateCustomerAccessToken(UUID customerId) {
+        return generateCustomerToken(customerId, expirationMinutes, ChronoUnit.MINUTES, "customer_access");
+    }
+
+    public String generateCustomerRefreshToken(UUID customerId) {
+        return generateCustomerToken(customerId, refreshExpirationDays, ChronoUnit.DAYS, "customer_refresh");
+    }
+
     private String generateToken(UUID userId, UUID tenantId, String role, long expiration, ChronoUnit unit, String type) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(userId.toString())
                 .claim("tenantId", tenantId.toString())
                 .claim("role", role)
@@ -50,10 +59,39 @@ public class JwtService {
                 .compact();
     }
 
+    private String generateCustomerToken(UUID customerId, long expiration, ChronoUnit unit, String type) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject(customerId.toString())
+                .claim("role", "CUSTOMER")
+                .claim("type", type)
+                .issuedAt(java.util.Date.from(now))
+                .expiration(java.util.Date.from(now.plus(expiration, unit)))
+                .signWith(key)
+                .compact();
+    }
+
     public io.jsonwebtoken.Claims parseRefreshToken(String token) {
+        return parseTokenOfType(token, "refresh");
+    }
+
+    public io.jsonwebtoken.Claims parseAccessToken(String token) {
+        return parseTokenOfType(token, "access");
+    }
+
+    public io.jsonwebtoken.Claims parseCustomerAccessToken(String token) {
+        return parseTokenOfType(token, "customer_access");
+    }
+
+    public io.jsonwebtoken.Claims parseCustomerRefreshToken(String token) {
+        return parseTokenOfType(token, "customer_refresh");
+    }
+
+    private io.jsonwebtoken.Claims parseTokenOfType(String token, String expectedType) {
         var claims = parseToken(token);
-        if (!"refresh".equals(claims.get("type", String.class))) {
-            throw new JwtException("Not a refresh token");
+        if (!expectedType.equals(claims.get("type", String.class))) {
+            throw new JwtException("Unexpected token type");
         }
         return claims;
     }

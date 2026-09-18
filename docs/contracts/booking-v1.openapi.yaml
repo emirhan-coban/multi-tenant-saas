@@ -1,0 +1,1073 @@
+openapi: 3.1.0
+info:
+  title: Customer Booking Contract
+  version: 1.4.0-versioned-shop-scenes
+  description: >-
+    Musteri akisi, personel onayi, self servis, isletmeye ozel paylasim kanali,
+    kanitli ilk ziyaret, otomatik onay, surum kontrollu iptal/tasima,
+    takvim kapanislari, bildirimler ve tenant ayarlari rezervasyon sozlesmesi.
+servers:
+  - url: /
+tags:
+  - name: Customer discovery
+  - name: Customer booking
+  - name: Staff approval
+  - name: Staff sharing
+  - name: Visit verification
+  - name: Shop scene
+paths:
+  /api/customer/v1/auth/register:
+    post:
+      tags: [Customer booking]
+      operationId: registerCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerRegister' }
+      responses:
+        '201':
+          description: Customer account created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerAuthResponse' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Customer email already exists
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /api/customer/v1/auth/login:
+    post:
+      tags: [Customer booking]
+      operationId: loginCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Customer session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerAuthResponse' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/customer/v1/auth/refresh:
+    post:
+      tags: [Customer booking]
+      operationId: refreshCustomerSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Renewed customer session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerAuthResponse' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/customer/v1/me:
+    get:
+      tags: [Customer booking]
+      operationId: getCurrentCustomer
+      security:
+        - customerBearer: []
+      responses:
+        '200':
+          description: Active customer profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/public/v1/shops/{tenantSlug}:
+    get:
+      tags: [Customer discovery]
+      operationId: getPublicShop
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Public shop data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicShop'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/public/v1/shops/{tenantSlug}/availability:
+    get:
+      tags: [Customer discovery]
+      operationId: getPublicAvailability
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: serviceId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: staffId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Available slots in the shop timezone
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timezone, slots]
+                properties:
+                  timezone: { type: string, example: Europe/Istanbul }
+                  slots:
+                    type: array
+                    items: { $ref: '#/components/schemas/Slot' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/public/v1/shops/{tenantSlug}/scene:
+    get:
+      tags: [Shop scene]
+      operationId: getPublishedShopScene
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Published, server-authoritative 3D chair manifest
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicSceneManifest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/customer/v1/booking-requests:
+    get:
+      tags: [Customer booking]
+      operationId: listOwnBookings
+      security:
+        - customerBearer: []
+      responses:
+        '200':
+          description: Up to 100 customer-owned bookings across tenants with status totals
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerBookings' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Customer booking]
+      operationId: createBookingRequest
+      security:
+        - customerBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Authoritative REQUEST result created or APPOINTMENT result auto-confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: >-
+            Slot unavailable, customer time conflict, future appointment limit,
+            daily booking limit, or idempotency key reused with another body
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429':
+          description: Customer or IP request limit exceeded
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /api/customer/v1/booking-requests/{requestId}:
+    get:
+      tags: [Customer booking]
+      operationId: getOwnBookingRequest
+      security:
+        - customerBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Current request state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingRequest' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/customer/v1/booking-requests/{requestId}/cancel:
+    post:
+      tags: [Customer booking]
+      operationId: cancelOwnBooking
+      security:
+        - customerBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerCancel' }
+      responses:
+        '200':
+          description: Pending request or confirmed appointment cancelled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerBooking' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cancellation window closed, terminal state, or conflicting replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /api/customer/v1/booking-requests/{requestId}/reschedule-availability:
+    get:
+      tags: [Customer booking]
+      operationId: getOwnRescheduleAvailability
+      security: [{ customerBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200': { description: Available replacement slots }
+        '409': { description: Reschedule window closed }
+  /api/customer/v1/booking-requests/{requestId}/reschedule:
+    post:
+      tags: [Customer booking]
+      operationId: rescheduleOwnBooking
+      security: [{ customerBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerReschedule' }
+      responses:
+        '200':
+          description: Trusted booking moved atomically or approval request created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerBooking' }
+        '409': { description: Stale version, unavailable slot, or active reschedule exists }
+  /api/customer/v1/booking-requests/{requestId}/calendar:
+    get:
+      tags: [Customer booking]
+      operationId: downloadOwnBookingCalendar
+      security: [{ customerBearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/RequestId' }]
+      responses:
+        '200':
+          description: iCalendar event
+          content:
+            text/calendar:
+              schema: { type: string }
+  /api/customer/v1/notifications:
+    get:
+      tags: [Customer booking]
+      operationId: listCustomerNotifications
+      security: [{ customerBearer: [] }]
+      responses:
+        '200':
+          description: Customer notifications
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/InAppNotification' } }
+  /api/customer/v1/booking-requests/{requestId}/visit-code:
+    post:
+      tags: [Visit verification]
+      operationId: issueVisitCode
+      description: Creates a five-minute, single-appointment code for the owning customer. The plaintext code is returned once and only its server-keyed HMAC-SHA256 digest is stored.
+      security:
+        - customerBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Short-lived visit code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitCode' }
+        '400':
+          description: Appointment status or issue window does not permit a code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/booking-requests:
+    get:
+      tags: [Staff approval]
+      operationId: listBookingRequests
+      security:
+        - staffBearer: []
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/BookingRequestStatus' }
+      responses:
+        '200':
+          description: Tenant-scoped request list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StaffBookingRequest' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/booking-requests/{requestId}/approve:
+    post:
+      tags: [Staff approval]
+      operationId: approveBookingRequest
+      security:
+        - staffBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Request approved and appointment created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffBookingRequest' }
+        '409':
+          description: Request expired, already decided, or slot no longer available
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /api/booking-requests/{requestId}/reject:
+    post:
+      tags: [Staff approval]
+      operationId: rejectBookingRequest
+      security:
+        - staffBearer: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 250
+      responses:
+        '200':
+          description: Request rejected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffBookingRequest' }
+        '409':
+          description: Request already decided
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /api/booking-customers/{customerId}/trust:
+    patch:
+      tags: [Staff approval]
+      operationId: updateCustomerTrust
+      security:
+        - staffBearer: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [trustState, expectedVersion, reason]
+              properties:
+                trustState:
+                  type: string
+                  enum: [TRUSTED, REVIEW_REQUIRED, BLOCKED]
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 250
+      responses:
+        '200':
+          description: Tenant customer trust updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerTrust' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Trust profile was changed from another screen
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /api/booking-customers:
+    get:
+      tags: [Staff approval]
+      operationId: listBookingCustomers
+      security:
+        - staffBearer: []
+      responses:
+        '200':
+          description: Tenant customer directory with trust evidence and counters
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BookingCustomerSummary' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/booking-customers/{customerId}/trust-events:
+    get:
+      tags: [Staff approval]
+      operationId: listCustomerTrustEvents
+      security:
+        - staffBearer: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Immutable trust transition history
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CustomerTrustEvent' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/appointments/{appointmentId}/visit-verification:
+    post:
+      tags: [Visit verification]
+      operationId: verifyVisitCode
+      description: OWNER or MANAGER verifies the customer's six-digit code at the shop. Five failed attempts invalidate the current code.
+      security:
+        - staffBearer: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^[0-9]{6}$' }
+      responses:
+        '200':
+          description: Customer account and physical visit matched
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitVerification' }
+        '400':
+          description: Missing, expired, invalid, or locked code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/booking-link:
+    get:
+      tags: [Staff sharing]
+      operationId: getBookingLink
+      description: Returns the verified tenant identity used to construct the public booking URL. The client cannot supply a tenant slug.
+      security:
+        - staffBearer: []
+      responses:
+        '200':
+          description: Active tenant booking identity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingLink' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/booking-settings:
+    get:
+      tags: [Staff approval]
+      operationId: getBookingSettings
+      security: [{ staffBearer: [] }]
+      responses:
+        '200':
+          description: Tenant booking policy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingSettings' }
+    put:
+      tags: [Staff approval]
+      operationId: updateBookingSettings
+      security: [{ staffBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookingSettings' }
+      responses:
+        '200':
+          description: Updated tenant booking policy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingSettings' }
+        '409': { description: Stale settings version }
+  /api/calendar-closures:
+    get:
+      tags: [Staff approval]
+      operationId: listCalendarClosures
+      security: [{ staffBearer: [] }]
+      responses:
+        '200':
+          description: Tenant closures in requested range
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/CalendarClosure' } }
+    post:
+      tags: [Staff approval]
+      operationId: createCalendarClosure
+      security: [{ staffBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalendarClosureRequest' }
+      responses:
+        '201':
+          description: Closure created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalendarClosure' }
+        '409': { description: Confirmed appointments overlap }
+  /api/calendar-closures/preview:
+    post:
+      tags: [Staff approval]
+      operationId: previewCalendarClosure
+      security: [{ staffBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalendarClosureRequest' }
+      responses:
+        '200': { description: Confirmed appointments affected by the closure }
+  /api/reschedule-requests:
+    get:
+      tags: [Staff approval]
+      operationId: listRescheduleRequests
+      security: [{ staffBearer: [] }]
+      responses:
+        '200': { description: Pending customer reschedule requests }
+  /api/notifications/in-app:
+    get:
+      tags: [Staff approval]
+      operationId: listStaffNotifications
+      security: [{ staffBearer: [] }]
+      responses:
+        '200':
+          description: Staff notifications
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/InAppNotification' } }
+  /api/shop-design:
+    get:
+      tags: [Shop scene]
+      operationId: getShopDesign
+      security: [{ staffBearer: [] }]
+      responses:
+        '200':
+          description: Draft, published scene, history and active staff
+          content: { application/json: { schema: { $ref: '#/components/schemas/ShopDesignState' } } }
+  /api/shop-design/draft:
+    put:
+      tags: [Shop scene]
+      operationId: saveShopDesignDraft
+      security: [{ staffBearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ShopSceneUpdate' } } }
+      responses:
+        '200': { description: Updated design state, content: { application/json: { schema: { $ref: '#/components/schemas/ShopDesignState' } } } }
+        '409': { description: Stale draft revision }
+  /api/shop-design/publish:
+    post:
+      tags: [Shop scene]
+      operationId: publishShopDesign
+      security: [{ staffBearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [revision], properties: { revision: { type: integer, minimum: 0 } } } } }
+      responses:
+        '200': { description: Newly published scene and next draft }
+  /api/shop-design/rollback:
+    post:
+      tags: [Shop scene]
+      operationId: rollbackShopDesign
+      security: [{ staffBearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [targetVersion, revision], properties: { targetVersion: { type: integer, minimum: 1 }, revision: { type: integer, minimum: 0 } } } } }
+      responses:
+        '200': { description: Historical layout republished as a new version }
+components:
+  securitySchemes:
+    customerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT customer_access
+    staffBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT access
+  parameters:
+    TenantSlug:
+      name: tenantSlug
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    BookingLink:
+      type: object
+      additionalProperties: false
+      required: [tenantId, tenantName, tenantSlug, timezone]
+      properties:
+        tenantId: { type: string, format: uuid }
+        tenantName: { type: string }
+        tenantSlug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        timezone: { type: string, example: Europe/Istanbul }
+    VisitCode:
+      type: object
+      additionalProperties: false
+      required: [appointmentId, code, expiresAt]
+      properties:
+        appointmentId: { type: string, format: uuid }
+        code: { type: string, pattern: '^[0-9]{6}$' }
+        expiresAt: { type: string, format: date-time }
+    VisitVerification:
+      type: object
+      additionalProperties: false
+      required: [appointmentId, verified, verifiedAt]
+      properties:
+        appointmentId: { type: string, format: uuid }
+        verified: { type: boolean, const: true }
+        verifiedAt: { type: string, format: date-time }
+    CustomerRegister:
+      type: object
+      additionalProperties: false
+      required: [email, password, fullName]
+      properties:
+        email: { type: string, format: email, maxLength: 255 }
+        password: { type: string, minLength: 8, maxLength: 72 }
+        fullName: { type: string, maxLength: 200 }
+        phone: { type: [string, 'null'], maxLength: 30 }
+    Customer:
+      type: object
+      required: [id, email, fullName]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        phone: { type: [string, 'null'] }
+    CustomerAuthResponse:
+      type: object
+      required: [accessToken, refreshToken, customer]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        customer: { $ref: '#/components/schemas/Customer' }
+    CustomerTrustState:
+      type: string
+      enum: [NEW, TRUSTED, REVIEW_REQUIRED, BLOCKED]
+    BookingRequestStatus:
+      type: string
+      enum: [PENDING_APPROVAL, AUTO_CONFIRMED, APPROVED, REJECTED, EXPIRED, CANCELLED]
+    BookingDecision:
+      type: string
+      enum: [REQUIRE_APPROVAL, AUTO_CONFIRM, REJECT]
+    PublicShop:
+      type: object
+      required: [id, slug, name, timezone, services, staff]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        timezone: { type: string }
+        services:
+          type: array
+          items:
+            type: object
+            required: [id, name, durationMin, bufferMin, price]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              durationMin: { type: integer, minimum: 1 }
+              bufferMin: { type: integer, minimum: 0 }
+              price: { type: number, minimum: 0 }
+        staff:
+          type: array
+          items:
+            type: object
+            required: [id, displayName, chairKey]
+            properties:
+              id: { type: string, format: uuid }
+              displayName: { type: string }
+              chairKey: { type: string, description: Stable key used by the 3D scene }
+    Slot:
+      type: object
+      required: [startsAt, endsAt]
+      properties:
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    CreateBookingRequest:
+      type: object
+      additionalProperties: false
+      required: [tenantSlug, serviceId, staffId, startsAt]
+      properties:
+        tenantSlug: { type: string }
+        serviceId: { type: string, format: uuid }
+        staffId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        note: { type: string, maxLength: 500 }
+        source: { type: string, enum: [WEB_LIST, WEB_3D], default: WEB_LIST }
+        sceneVersion: { type: integer, minimum: 1, description: Required with WEB_3D }
+        chairKey: { type: string, maxLength: 40, description: Required with WEB_3D }
+    SceneChair:
+      type: object
+      required: [chairKey, label, staffId, staffName, positionX, positionZ, rotationY]
+      properties:
+        chairKey: { type: string, pattern: '^[a-z0-9][a-z0-9-]{1,39}$' }
+        label: { type: string, maxLength: 60 }
+        staffId: { type: string, format: uuid }
+        staffName: { type: string }
+        positionX: { type: number, minimum: -8, maximum: 8 }
+        positionZ: { type: number, minimum: -5, maximum: 4 }
+        rotationY: { type: number, minimum: -6.284, maximum: 6.284 }
+    PublicSceneManifest:
+      type: object
+      required: [version, templateKey, accentColor, chairs]
+      properties:
+        version: { type: integer, minimum: 1 }
+        templateKey: { type: string, enum: [CLASSIC_3_CHAIR] }
+        accentColor: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
+        chairs: { type: array, maxItems: 3, items: { $ref: '#/components/schemas/SceneChair' } }
+    ShopScene:
+      allOf:
+        - $ref: '#/components/schemas/PublicSceneManifest'
+        - type: object
+          required: [status, revision]
+          properties:
+            status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+            revision: { type: integer, minimum: 0 }
+            publishedAt: { type: [string, 'null'], format: date-time }
+    ShopSceneUpdate:
+      type: object
+      additionalProperties: false
+      required: [templateKey, accentColor, revision, chairs]
+      properties:
+        templateKey: { type: string, enum: [CLASSIC_3_CHAIR] }
+        accentColor: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
+        revision: { type: integer, minimum: 0 }
+        chairs: { type: array, minItems: 1, maxItems: 3, items: { $ref: '#/components/schemas/SceneChair' } }
+    ShopDesignState:
+      type: object
+      required: [draft, published, history, staff]
+      properties:
+        draft: { $ref: '#/components/schemas/ShopScene' }
+        published: { $ref: '#/components/schemas/ShopScene' }
+        history: { type: array, items: { type: integer, minimum: 1 } }
+        staff:
+          type: array
+          items:
+            type: object
+            required: [id, displayName]
+            properties: { id: { type: string, format: uuid }, displayName: { type: string } }
+    BookingRequest:
+      type: object
+      required: [id, tenantSlug, resultType, serviceId, staffId, startsAt, status, trustState, decision, canCancel, version, canReschedule]
+      properties:
+        id: { type: string, format: uuid }
+        tenantSlug: { type: string }
+        resultType:
+          type: string
+          enum: [REQUEST, APPOINTMENT]
+          description: Authoritative server outcome; clients must not infer confirmation from the trust value.
+        serviceId: { type: string, format: uuid }
+        staffId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/BookingRequestStatus' }
+        trustState: { $ref: '#/components/schemas/CustomerTrustState' }
+        decision: { $ref: '#/components/schemas/BookingDecision' }
+        holdExpiresAt:
+          type: [string, 'null']
+          format: date-time
+        appointmentId:
+          type: [string, 'null']
+          format: uuid
+        canCancel: { type: boolean }
+        cancellableUntil: { type: [string, 'null'], format: date-time }
+        version: { type: integer, minimum: 0 }
+        appointmentVersion: { type: [integer, 'null'], minimum: 0 }
+        canReschedule: { type: boolean }
+        reschedulableUntil: { type: [string, 'null'], format: date-time }
+    CustomerBooking:
+      allOf:
+        - $ref: '#/components/schemas/BookingRequest'
+        - type: object
+          required: [tenantName, timezone, serviceName, staffName, busyUntil, createdAt]
+          properties:
+            tenantName: { type: string }
+            timezone: { type: string }
+            serviceName: { type: string }
+            staffName: { type: string }
+            busyUntil: { type: string, format: date-time }
+            appointmentStatus:
+              type: [string, 'null']
+              enum: [CONFIRMED, COMPLETED, CANCELLED, NO_SHOW, null]
+            rejectionReason: { type: [string, 'null'] }
+            createdAt: { type: string, format: date-time }
+            cancelledAt: { type: [string, 'null'], format: date-time }
+            rescheduleRequestId: { type: [string, 'null'], format: uuid }
+            rescheduleStatus: { type: [string, 'null'], enum: [PENDING_APPROVAL, APPROVED, REJECTED, NEEDS_RESELECTION, CANCELLED, null] }
+            proposedStartsAt: { type: [string, 'null'], format: date-time }
+    CustomerBookings:
+      type: object
+      required: [items, summary]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/CustomerBooking' }
+        summary:
+          type: object
+          required: [pending, upcoming, completed, cancelled, noShow]
+          properties:
+            pending: { type: integer, minimum: 0 }
+            upcoming: { type: integer, minimum: 0 }
+            completed: { type: integer, minimum: 0 }
+            cancelled: { type: integer, minimum: 0 }
+            noShow: { type: integer, minimum: 0 }
+    StaffBookingRequest:
+      allOf:
+        - type: object
+          required: [id, customerId, customerName, customerEmail, trustState, completedCount, noShowCount, trustVersion, serviceId, serviceName, staffId, staffName, startsAt, busyUntil, status, decision, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            customerId: { type: string, format: uuid }
+            customerName: { type: string }
+            customerEmail: { type: string, format: email }
+            customerPhone: { type: [string, 'null'] }
+            trustState: { $ref: '#/components/schemas/CustomerTrustState' }
+            completedCount: { type: integer, minimum: 0 }
+            noShowCount: { type: integer, minimum: 0 }
+            trustVersion: { type: integer, minimum: 0 }
+            serviceId: { type: string, format: uuid }
+            serviceName: { type: string }
+            staffId: { type: string, format: uuid }
+            staffName: { type: string }
+            startsAt: { type: string, format: date-time }
+            busyUntil: { type: string, format: date-time }
+            status: { $ref: '#/components/schemas/BookingRequestStatus' }
+            decision: { $ref: '#/components/schemas/BookingDecision' }
+            holdExpiresAt: { type: [string, 'null'], format: date-time }
+            appointmentId: { type: [string, 'null'], format: uuid }
+            note: { type: [string, 'null'] }
+            rejectionReason: { type: [string, 'null'] }
+            createdAt: { type: string, format: date-time }
+            decidedAt: { type: [string, 'null'], format: date-time }
+    CustomerTrust:
+      type: object
+      required: [customerId, trustState, completedCount, noShowCount, version, updatedAt]
+      properties:
+        customerId: { type: string, format: uuid }
+        trustState: { $ref: '#/components/schemas/CustomerTrustState' }
+        completedCount: { type: integer, minimum: 0 }
+        noShowCount: { type: integer, minimum: 0 }
+        blockedReason: { type: [string, 'null'] }
+        trustedAt: { type: [string, 'null'], format: date-time }
+        trustReason: { type: [string, 'null'] }
+        evidenceAppointmentId: { type: [string, 'null'], format: uuid }
+        version: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+    BookingCustomerSummary:
+      type: object
+      required: [customerId, customerName, customerEmail, trustState, completedCount, noShowCount, version]
+      properties:
+        customerId: { type: string, format: uuid }
+        customerName: { type: string }
+        customerEmail: { type: string, format: email }
+        customerPhone: { type: [string, 'null'] }
+        trustState: { $ref: '#/components/schemas/CustomerTrustState' }
+        completedCount: { type: integer, minimum: 0 }
+        noShowCount: { type: integer, minimum: 0 }
+        blockedReason: { type: [string, 'null'] }
+        trustedAt: { type: [string, 'null'], format: date-time }
+        trustReason: { type: [string, 'null'] }
+        evidenceAppointmentId: { type: [string, 'null'], format: uuid }
+        version: { type: integer, minimum: 0 }
+        lastAppointmentAt: { type: [string, 'null'], format: date-time }
+    CustomerTrustEvent:
+      type: object
+      required: [id, fromState, toState, reason, actorName, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        fromState: { $ref: '#/components/schemas/CustomerTrustState' }
+        toState: { $ref: '#/components/schemas/CustomerTrustState' }
+        reason: { type: string }
+        actorName: { type: string }
+        evidenceAppointmentId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+    CustomerCancel:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer, minimum: 0 }
+        appointmentVersion: { type: [integer, 'null'], minimum: 0 }
+    CustomerReschedule:
+      type: object
+      additionalProperties: false
+      required: [version, appointmentVersion, startsAt]
+      properties:
+        version: { type: integer, minimum: 0 }
+        appointmentVersion: { type: integer, minimum: 0 }
+        startsAt: { type: string, format: date-time }
+    BookingSettings:
+      type: object
+      required: [trustedAutoConfirmEnabled, maxFutureAppointments, maxDailyBookings, bookingHorizonDays, minimumLeadMinutes, requestExpiryMinutes, cancellationCutoffMinutes, version]
+      properties:
+        trustedAutoConfirmEnabled: { type: boolean }
+        maxFutureAppointments: { type: integer, minimum: 0, maximum: 20 }
+        maxDailyBookings: { type: integer, minimum: 1, maximum: 50 }
+        bookingHorizonDays: { type: integer, minimum: 1, maximum: 365 }
+        minimumLeadMinutes: { type: integer, minimum: 0, maximum: 10080 }
+        requestExpiryMinutes: { type: integer, minimum: 5, maximum: 1440 }
+        cancellationCutoffMinutes: { type: integer, minimum: 0, maximum: 10080 }
+        version: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time, readOnly: true }
+    CalendarClosureRequest:
+      type: object
+      required: [type, startsAt, endsAt]
+      properties:
+        staffId: { type: [string, 'null'], format: uuid }
+        type: { type: string, enum: [BREAK, CLOSED_DAY] }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        reason: { type: [string, 'null'], maxLength: 255 }
+    CalendarClosure:
+      allOf:
+        - $ref: '#/components/schemas/CalendarClosureRequest'
+        - type: object
+          required: [id, version]
+          properties:
+            id: { type: string, format: uuid }
+            staffName: { type: [string, 'null'] }
+            version: { type: integer, minimum: 0 }
+    InAppNotification:
+      type: object
+      required: [id, eventType, title, body, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        eventType: { type: string }
+        title: { type: string }
+        body: { type: string }
+        relatedType: { type: [string, 'null'] }
+        relatedId: { type: [string, 'null'], format: uuid }
+        readAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+  responses:
+    ValidationError:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Unauthorized:
+      description: Missing, invalid, or wrong-audience token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Forbidden:
+      description: Role or tenant access denied
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: Resource not found in the caller's scope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }

@@ -18,7 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AppointmentIntegrationTests extends PostgresTestBase {
     @Autowired AppointmentService service;
-    @Autowired JdbcTemplate jdbc;
+    // Faz 9: fixture SQL'i şema sahibiyle çalışır; uygulama kodu kısıtlı saas_app rolündedir.
+    final JdbcTemplate jdbc = ownerJdbc();
     @Autowired JwtService jwt;
     @Autowired ObjectMapper json;
     @Value("${local.server.port}") int port;
@@ -198,7 +199,7 @@ class AppointmentIntegrationTests extends PostgresTestBase {
         assertThrows(com.saas.backend.auth.ApiException.class,()->service.availability(owner,staff,offering,date));
     }
 
-    @Test void rlsPolicyHidesOtherTenantForNonSuperuser() throws Exception {
+    @Test void rlsPolicyUsesRestrictedRoleAndTransactionLocalTenant() throws Exception {
         create("rls",start);
         String role="qa_"+UUID.randomUUID().toString().replace("-","");
         jdbc.execute("create role "+role);
@@ -212,6 +213,10 @@ class AppointmentIntegrationTests extends PostgresTestBase {
                 try(var rows=statement.executeQuery("select count(*) from appointments")) { rows.next(); assertEquals(0,rows.getInt(1)); }
                 statement.execute("select set_config('app.current_tenant','"+tenant+"',true)");
                 try(var rows=statement.executeQuery("select count(*) from appointments")) { rows.next(); assertEquals(1,rows.getInt(1)); }
+                connection.commit();
+
+                statement.execute("set local role "+role);
+                try(var rows=statement.executeQuery("select count(*) from appointments")) { rows.next(); assertEquals(0,rows.getInt(1)); }
             } finally { connection.rollback(); }
         }
     }

@@ -2,11 +2,21 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1d6b52" />
+    <!-- interactive-widget: klavye açıldığında içerik yukarı itilir, sabit alt çubuk alanları örtmez. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#177f7c" />
+    <meta name="description" content="Berber koltuğunu seç, randevunu al ve durumunu anlık bildirimlerle takip et." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Randevu" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Tenant OS — Çalışma Alanı</title>
   </head>
   <body>
+    <noscript>Randevu uygulaması için JavaScript gereklidir.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

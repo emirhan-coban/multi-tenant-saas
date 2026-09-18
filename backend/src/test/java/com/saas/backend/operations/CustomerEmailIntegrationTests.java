@@ -17,7 +17,8 @@ import static org.mockito.Mockito.*;
 class CustomerEmailIntegrationTests extends PostgresTestBase {
     @Autowired AppointmentService appointments;
     @Autowired OutboxWorker worker;
-    @Autowired JdbcTemplate db;
+    // Faz 9: fixture SQL'i şema sahibiyle çalışır; uygulama kodu kısıtlı saas_app rolündedir.
+    final JdbcTemplate db = ownerJdbc();
     @Autowired ObjectMapper json;
     @MockitoBean GmailSender gmail;
     UUID tenant,user,staff,service;

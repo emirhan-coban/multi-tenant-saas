@@ -19,26 +19,36 @@ public class CustomerEmailService {
 
     @Transactional
     public void queue(AuthenticatedUser u,Appointment a,String event) {
-        db.queryForObject("select set_config('app.current_tenant', ?, true)",String.class,u.tenantId().toString());
+        queue(u.tenantId(),u.userId(),a,event);
+    }
+    @Transactional
+    public void queueForCustomer(UUID tenant,Appointment a,String event) {
+        db.queryForObject("select set_config('app.current_tenant', ?, true)",String.class,tenant.toString());
+        var recipients=db.queryForList("select user_id from staff where tenant_id=? and id=? and user_id is not null",UUID.class,tenant,a.getStaffId());
+        if(recipients.isEmpty())return;
+        queue(tenant,recipients.getFirst(),a,event);
+    }
+    private void queue(UUID tenant,UUID recipient,Appointment a,String event) {
+        db.queryForObject("select set_config('app.current_tenant', ?, true)",String.class,tenant.toString());
         // Old pending customer messages must not announce an obsolete appointment time.
-        db.update("update outbox set status='SKIPPED' where tenant_id=? and appointment_id=? and event_type like 'CUSTOMER_%' and status='PENDING'",u.tenantId(),a.getId());
+        db.update("update outbox set status='SKIPPED' where tenant_id=? and appointment_id=? and event_type like 'CUSTOMER_%' and status='PENDING'",tenant,a.getId());
         if(!a.isEmailNotifications() || a.getCustomerEmail()==null || a.getCustomerEmail().isBlank())return;
-        var tenant=db.queryForMap("select name,timezone from tenants where id=?",u.tenantId());
-        String zone=tenant.get("timezone").toString();if(zone.equals("Istanbul"))zone="Europe/Istanbul";
-        String service=db.queryForObject("select name from services where id=? and tenant_id=?",String.class,a.getServiceId(),u.tenantId());
-        var payload=Map.of("startsAt",a.getStartsAt().toString(),"timezone",zone,"tenantName",tenant.get("name").toString(),
+        var tenantRow=db.queryForMap("select name,timezone from tenants where id=?",tenant);
+        String zone=tenantRow.get("timezone").toString();if(zone.equals("Istanbul"))zone="Europe/Istanbul";
+        String service=db.queryForObject("select name from services where id=? and tenant_id=?",String.class,a.getServiceId(),tenant);
+        var payload=Map.of("startsAt",a.getStartsAt().toString(),"timezone",zone,"tenantName",tenantRow.get("name").toString(),
             "serviceName",service,"customerName",Objects.toString(a.getCustomerName(),""));
-        insert(u,a,event,payload,Instant.now());
+        insert(tenant,recipient,a,event,payload,Instant.now());
         // Near-term appointments get their confirmation, not a second immediate reminder.
         Instant remindAt=a.getStartsAt().minus(Duration.ofHours(24));
         if(!event.equals("CUSTOMER_CANCELLED") && remindAt.isAfter(Instant.now()))
-            insert(u,a,"CUSTOMER_REMINDER",payload,remindAt);
+            insert(tenant,recipient,a,"CUSTOMER_REMINDER",payload,remindAt);
     }
-    private void insert(AuthenticatedUser u,Appointment a,String event,Map<String,String> payload,Instant at) {
+    private void insert(UUID tenant,UUID recipient,Appointment a,String event,Map<String,String> payload,Instant at) {
         db.update("""
             insert into outbox(tenant_id,recipient_id,appointment_id,event_type,payload,available_at,recipient_email)
             values (?,?,?,?,cast(? as jsonb),?,?)
-            """,u.tenantId(),u.userId(),a.getId(),event,json.writeValueAsString(payload),Timestamp.from(at),a.getCustomerEmail());
+            """,tenant,recipient,a.getId(),event,json.writeValueAsString(payload),Timestamp.from(at),a.getCustomerEmail());
     }
     // Runs inside OutboxWorker's transaction and row lock.
     public Delivery deliver(Map<String,Object> event) {
@@ -69,7 +79,7 @@ public class CustomerEmailService {
         String body="Merhaba "+payload.get("customerName").asString()+" HANIM"+",\n\n"+title+".\n\n"
             +"İşletme: "+payload.get("tenantName").asString()+"\nHizmet: "+payload.get("serviceName").asString()
             +"\nRandevu zamanı: "+time+" ("+zone+")\n\n"
-            +"Sorularınız veya değişiklik talepleriniz için bu e-postayı yanıtlayabilirsiniz (cevaplamam amk sana ama yarrak).";
+            +"Sorularınız veya değişiklik talepleriniz için işletmeyle iletişime geçebilirsiniz.";
         sender.send((UUID)event.get("id"),recipient,title,body);
         return Delivery.SENT;
     }

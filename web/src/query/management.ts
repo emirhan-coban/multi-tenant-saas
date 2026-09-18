@@ -1,7 +1,8 @@
 import { CanceledError } from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as management from '../api/management';
-import type { InviteInput, InviteResult, Service } from '../api/types';
+import type { BookingApprovalRequest, InviteInput, InviteResult, Service, StaffRescheduleRequest } from '../api/types';
+import type { BookingRequestStatus } from '../api/booking-contract';
 import { useAuth } from '../store/auth';
 import { useTenant } from '../store/tenant';
 import { queryKeys } from './keys';
@@ -12,6 +13,14 @@ export function useCurrentUser() {
     queryKey: queryKeys.me,
     queryFn: ({ signal }) => management.getMe(signal),
     enabled: ready && !!session,
+  });
+}
+
+export function useBookingLink() {
+  const { tenantId } = useTenant();
+  return useQuery({
+    queryKey: queryKeys.bookingLink(tenantId),
+    queryFn: ({ signal }) => management.getBookingLink(signal),
   });
 }
 
@@ -127,4 +136,129 @@ export function useSaveWorkingHours() {
       if (query && client.getQueryCache().find({ queryKey: key, exact: true }) === query) client.setQueryData(key, rows);
     },
   });
+}
+
+export function useBookingRequests(status: BookingRequestStatus = 'PENDING_APPROVAL') {
+  const { tenantId } = useTenant();
+  return useQuery({
+    queryKey: queryKeys.bookingRequests(tenantId, status),
+    queryFn: ({ signal }) => management.getBookingRequests(status, signal),
+    refetchInterval: status === 'PENDING_APPROVAL' ? 30_000 : false,
+  });
+}
+
+function useBookingDecision(action: 'approve' | 'reject') {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: action === 'approve'
+      ? (input: { id: string; reason?: string }) => management.approveBookingRequest(input.id)
+      : management.rejectBookingRequest,
+    onSuccess: (result: BookingApprovalRequest) => {
+      client.setQueryData<BookingApprovalRequest[]>(queryKeys.bookingRequests(tenantId, 'PENDING_APPROVAL'),
+        rows => rows?.filter(row => row.id !== result.id));
+      void client.invalidateQueries({ queryKey: ['tenant', tenantId, 'booking-requests'] });
+    },
+  });
+}
+
+export function useApproveBookingRequest() { return useBookingDecision('approve'); }
+export function useRejectBookingRequest() { return useBookingDecision('reject'); }
+
+export function useUpdateCustomerTrust() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: management.updateCustomerTrust,
+    onSuccess: result => {
+      client.setQueriesData<BookingApprovalRequest[]>({ queryKey: ['tenant', tenantId, 'booking-requests'] }, rows =>
+        rows?.map(row => row.customerId === result.customerId ? { ...row, trustState: result.trustState, trustVersion: result.version } : row));
+      void client.invalidateQueries({ queryKey: queryKeys.bookingCustomers(tenantId) });
+      void client.invalidateQueries({ queryKey: queryKeys.customerTrustEvents(tenantId, result.customerId) });
+    },
+  });
+}
+
+export function useBookingCustomers() {
+  const { tenantId } = useTenant();
+  return useQuery({ queryKey: queryKeys.bookingCustomers(tenantId), queryFn: ({ signal }) => management.getBookingCustomers(signal) });
+}
+
+export function useCustomerTrustEvents(customerId: string | null) {
+  const { tenantId } = useTenant();
+  return useQuery({
+    queryKey: queryKeys.customerTrustEvents(tenantId, customerId ?? ''),
+    queryFn: ({ signal }) => management.getCustomerTrustEvents(customerId!, signal),
+    enabled: !!customerId,
+  });
+}
+
+export function useRescheduleRequests() {
+  const { tenantId } = useTenant();
+  return useQuery({ queryKey: queryKeys.rescheduleRequests(tenantId), queryFn: ({ signal }) => management.getRescheduleRequests(signal), refetchInterval: 30_000 });
+}
+
+function useRescheduleDecision(action: 'approve' | 'reject') {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: action === 'approve'
+      ? (input: { id: string; reason?: string }) => management.approveRescheduleRequest(input.id)
+      : management.rejectRescheduleRequest,
+    onSuccess: (result: StaffRescheduleRequest) => {
+      client.setQueryData<StaffRescheduleRequest[]>(queryKeys.rescheduleRequests(tenantId), rows => rows?.filter(row => row.id !== result.id));
+      void client.invalidateQueries({ queryKey: ['tenant', tenantId, 'appointments'] });
+    },
+  });
+}
+export function useApproveRescheduleRequest() { return useRescheduleDecision('approve'); }
+export function useRejectRescheduleRequest() { return useRescheduleDecision('reject'); }
+
+export function useBookingSettings() {
+  const { tenantId } = useTenant();
+  return useQuery({ queryKey: queryKeys.bookingSettings(tenantId), queryFn: ({ signal }) => management.getBookingSettings(signal) });
+}
+export function useUpdateBookingSettings() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({ mutationFn: management.updateBookingSettings,
+    onSuccess: data => client.setQueryData(queryKeys.bookingSettings(tenantId), data) });
+}
+
+export function useShopDesign() {
+  const { tenantId } = useTenant();
+  return useQuery({ queryKey: queryKeys.shopDesign(tenantId), queryFn: ({ signal }) => management.getShopDesign(signal) });
+}
+
+export function useSaveShopDesign() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({ mutationFn: management.saveShopDesign,
+    onSuccess: data => client.setQueryData(queryKeys.shopDesign(tenantId), data) });
+}
+
+export function usePublishShopDesign() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({ mutationFn: management.publishShopDesign,
+    onSuccess: data => client.setQueryData(queryKeys.shopDesign(tenantId), data) });
+}
+
+export function useRollbackShopDesign() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({ mutationFn: ({ targetVersion, revision }: { targetVersion: number; revision: number }) => management.rollbackShopDesign(targetVersion, revision),
+    onSuccess: data => client.setQueryData(queryKeys.shopDesign(tenantId), data) });
+}
+
+export function useFeatureFlags() {
+  const { tenantId } = useTenant();
+  return useQuery({ queryKey: queryKeys.featureFlags(tenantId), queryFn: ({ signal }) => management.getFeatureFlags(signal) });
+}
+
+export function useUpdateFeatureFlag() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({ mutationFn: management.updateFeatureFlag,
+    onSuccess: data => client.setQueryData(queryKeys.featureFlags(tenantId), data) });
 }

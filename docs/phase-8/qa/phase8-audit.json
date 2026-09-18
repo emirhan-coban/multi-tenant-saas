@@ -1,0 +1,87 @@
+[
+  {
+    "check": "manifest yüklenebilir ve kurulum alanları tam",
+    "ok": true,
+    "detail": "start_url=/customer/account?source=pwa"
+  },
+  {
+    "check": "service worker kaydoldu ve sayfayı kontrol ediyor",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "önbellekte hiçbir API/özel yanıt yok",
+    "ok": true,
+    "detail": "12 kayıt; özel=[]"
+  },
+  {
+    "check": "çevrimdışı gezinmede uygulama kabuğu/offline sayfası açılır",
+    "ok": true,
+    "detail": "MÜŞTERİ RANDEVU ALANI  Randevuların tek hesabında.  İlk ziyaretin işletme tarafı"
+  },
+  {
+    "check": "çevrimdışı bandı rezervasyon panelinde görünür",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "ilk Tab 'Randevu paneline geç' atlama bağlantısı",
+    "ok": true,
+    "detail": "Randevu paneline geç"
+  },
+  {
+    "check": "atlama bağlantısı odağı panele taşır",
+    "ok": true,
+    "detail": "<select><option value=\"s1\">Saç kesimi</option></select>"
+  },
+  {
+    "check": "klavyeyle berber+saat+devam; adım değişince odak panel başlığında",
+    "ok": true,
+    "detail": "booking-panel-title"
+  },
+  {
+    "check": "erişilebilir ad / tabindex / alt / tekrar eden id denetimi",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "panel erişilebilirlik ağacı başlık, adım listesi ve düğmeleri içerir",
+    "ok": true,
+    "detail": "13 satır"
+  },
+  {
+    "check": "metin kontrastı WCAG AA",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "zoom/reflow 1280x800@200%: yatay kaydırma yok, onay düğmesine ulaşılır",
+    "ok": true,
+    "detail": "taşma=0px düğme={'x': 16, 'y': 335.921875, 'width': 608, 'height': 52}"
+  },
+  {
+    "check": "zoom/reflow 1920x1080@200%: yatay kaydırma yok, onay düğmesine ulaşılır",
+    "ok": true,
+    "detail": "taşma=0px düğme={'x': 643, 'y': 453.953125, 'width': 295, 'height': 60}"
+  },
+  {
+    "check": "zoom/reflow 320px mobil: yatay kaydırma yok, onay düğmesine ulaşılır",
+    "ok": true,
+    "detail": "taşma=0px düğme={'x': 16, 'y': 504, 'width': 288, 'height': 52}"
+  },
+  {
+    "check": "düşük donanımda low kalite ve yalnızca mobil GLB",
+    "ok": true,
+    "detail": "quality=low modeller=['barber-chair-mobile.glb'] süre=5.1s (CPU x6, yazılım GPU)"
+  },
+  {
+    "check": "düşük donanımda koltuk etiketleri klavyeyle seçilebilir buton",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "3D kapalı: liste modu açılır, 3D sekmesi pasif, 3D kodu/modeli indirilmez",
+    "ok": true,
+    "detail": "indirilen=[]"
+  }
+]

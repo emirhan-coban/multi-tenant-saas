@@ -27,7 +27,8 @@ class OperationsIntegrationTests extends PostgresTestBase {
     @Autowired PersonelService staffService;
     @Autowired TenantRateLimiter limiter;
     @Autowired OutboxWorker worker;
-    @Autowired JdbcTemplate db;
+    // Faz 9: fixture SQL'i şema sahibiyle çalışır; uygulama kodu kısıtlı saas_app rolündedir.
+    final JdbcTemplate db = ownerJdbc();
     @Autowired ObjectMapper json;
     @Autowired JwtService jwt;
     @Autowired PlatformTransactionManager tm;
@@ -127,7 +128,7 @@ class OperationsIntegrationTests extends PostgresTestBase {
     @Test void unavailableRedisFailsClosedWithRetryHeader() throws Exception {
         var failed=mock(TenantRateLimiter.class);
         when(failed.consume(tenant,false)).thenThrow(new IllegalStateException("unavailable"));
-        var filter=new RateLimitFilter(failed,ops);
+        var filter=new RateLimitFilter(failed,ops,new com.saas.backend.ops.OpsMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
         var auth=new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(owner,null,List.of());
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
         var response=new org.springframework.mock.web.MockHttpServletResponse();
@@ -271,7 +272,7 @@ class OperationsIntegrationTests extends PostgresTestBase {
     }
     @Test @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
     void logsAreJsonAndTraceContextClearsAfterException(org.springframework.boot.test.system.CapturedOutput output) throws Exception {
-        var filter=new TraceFilter();var req=new org.springframework.mock.web.MockHttpServletRequest("GET","/test");
+        var filter=new TraceFilter(new com.saas.backend.ops.OpsMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));var req=new org.springframework.mock.web.MockHttpServletRequest("GET","/test");
         var res=new org.springframework.mock.web.MockHttpServletResponse();
         assertThrows(jakarta.servlet.ServletException.class,()->filter.doFilter(req,res,(a,b)->{
             org.slf4j.MDC.put("tenantId",tenant.toString());

@@ -15,10 +15,11 @@ public final class AppointmentDtos {
                         @Size(max=500) String notes) {}
     public record Response(UUID id, UUID staffId, UUID serviceId, Instant startsAt, Instant endsAt,
                            Instant busyUntil, Appointment.Status status, String customerName,
-                           String customerPhone, String notes, Integer version, String customerEmail, boolean emailNotifications) {}
+                           String customerPhone, String notes, Integer version, String customerEmail,
+                           boolean emailNotifications, UUID customerId, Instant visitVerifiedAt) {}
     public record Availability(String timezone, LocalDate date, List<MusaitlikHesaplayici.ZamanAraligi> slots) {}
     public static Response response(Appointment a) {
         return new Response(a.getId(),a.getStaffId(),a.getServiceId(),a.getStartsAt(),a.getEndsAt(),
-            a.getBusyUntil(),a.getStatus(),a.getCustomerName(),a.getCustomerPhone(),a.getNotes(),a.getVersion(),a.getCustomerEmail(),a.isEmailNotifications());
+            a.getBusyUntil(),a.getStatus(),a.getCustomerName(),a.getCustomerPhone(),a.getNotes(),a.getVersion(),a.getCustomerEmail(),a.isEmailNotifications(),a.getCustomerId(),null);
     }
 }

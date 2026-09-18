@@ -42,7 +42,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = header.substring(7);
 
         try {
-            Claims claims = jwtService.parseToken(token);
+            Claims claims = jwtService.parseAccessToken(token);
 
             UUID userId = UUID.fromString(claims.getSubject());
             UUID tenantId = UUID.fromString(claims.get("tenantId", String.class));

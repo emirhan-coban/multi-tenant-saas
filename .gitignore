@@ -8,3 +8,20 @@ web/dist/
 .idea/workspace.xml
 .DS_Store
 **/.DS_Store
+
+# Faz 8 yedekleri kişisel veri içerir
+backups/
+*.dump
+*.dump.sha256
+*.dump.meta.json
+
+# Yerel çalıştırma ve test izleyicilerinin çıktıları
+calistir.log
+test-output.log
+web-output.log
+.run-tests
+.run-web
+web/dist-*.tgz
+
+# Claude masaüstü uygulamasının çalışma klasörü
+Claude outputs/

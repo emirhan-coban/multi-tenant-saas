@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { AuthScreen } from '../screens/AuthScreen';
 import { StaffScreen } from '../screens/StaffScreen';
@@ -10,11 +11,24 @@ import { AccountScreen } from '../screens/AccountScreen';
 import { WorkingHoursScreen } from '../screens/WorkingHoursScreen';
 import { AppointmentsScreen } from '../screens/AppointmentsScreen';
 import { AuditScreen, ReportsScreen, PlanScreen, NotificationsScreen } from '../screens/OperationsScreens';
-import { canAccess, managementRoles, memberRoles } from './navigation';
+import { canAccess, managementRoles, memberRoles, ownerRoles } from './navigation';
 import type { Role } from '../api/types';
 import { useCurrentUser } from '../query/management';
 import { PageSkeleton } from '../components/PageSkeleton';
 import { Button, Card } from '../components/ui';
+import { CustomerAuthScreen } from '../screens/CustomerAuthScreen';
+import { CustomerAccountScreen } from '../screens/CustomerAccountScreen';
+import { BookingRequestsScreen } from '../screens/BookingRequestsScreen';
+import { useCustomerAuth } from '../store/customer-auth';
+import { BookingLinkScreen } from '../screens/BookingLinkScreen';
+import { CustomersScreen } from '../screens/CustomersScreen';
+import { BookingSettingsScreen } from '../screens/BookingSettingsScreen';
+import { ShopDesignScreen } from '../screens/ShopDesignScreen';
+import { FeatureFlagScreen } from '../screens/FeatureFlagScreen';
+import { ForgotPasswordScreen, ResetPasswordScreen, VerifyEmailScreen } from '../screens/AccountRecoveryScreens';
+import { PrivacyScreen } from '../screens/PrivacyScreen';
+
+const BookingScreen = lazy(() => import('../screens/BookingScreen').then(module => ({ default: module.BookingScreen })));
 
 function RequireSession() {
   const { ready, session } = useAuth();
@@ -46,6 +60,23 @@ function LoginRoute() {
   return session ? <Navigate to={destination} replace /> : <AuthScreen />;
 }
 
+function CustomerLoginRoute() {
+  const { ready, session } = useCustomerAuth();
+  const location = useLocation();
+  if (!ready) return <PageSkeleton />;
+  const from: unknown = location.state?.from;
+  const destination = typeof from === 'string' && (from === '/customer/account' || from.startsWith('/book/')) ? from : '/customer/account';
+  return session ? <Navigate to={destination} replace /> : <CustomerAuthScreen />;
+}
+
+function RequireCustomerSession() {
+  const { ready, session } = useCustomerAuth();
+  const location = useLocation();
+  if (!ready) return <PageSkeleton />;
+  if (!session) return <Navigate to="/customer/login" state={{ from: location.pathname }} replace />;
+  return <Outlet />;
+}
+
 function RequireRole({ allowed }: { allowed: readonly Role[] }) {
   const { role } = useTenant();
   const { logout } = useAuth();
@@ -67,10 +98,25 @@ export function AppRoutes() {
   return <Routes>
     <Route path="/" element={<Navigate to="/app" replace />} />
     <Route path="/login" element={<LoginRoute />} />
+    <Route path="/customer/login" element={<CustomerLoginRoute />} />
+    {/* Faz 9: e-postadaki bağlantılar bu adreslere gelir. */}
+    <Route path="/kvkk" element={<PrivacyScreen />} />
+    <Route path="/sifremi-unuttum" element={<ForgotPasswordScreen />} />
+    <Route path="/sifre-sifirla" element={<ResetPasswordScreen />} />
+    <Route path="/eposta-dogrula" element={<VerifyEmailScreen />} />
+    <Route path="/musteri/sifremi-unuttum" element={<ForgotPasswordScreen customer />} />
+    <Route path="/musteri/sifre-sifirla" element={<ResetPasswordScreen customer />} />
+    <Route path="/musteri/eposta-dogrula" element={<VerifyEmailScreen customer />} />
+    <Route path="/book/:tenantSlug" element={<Suspense fallback={<PageSkeleton />}><BookingScreen /></Suspense>} />
+    <Route path="/customer" element={<RequireCustomerSession />}>
+      <Route index element={<Navigate to="account" replace />} />
+      <Route path="account" element={<CustomerAccountScreen />} />
+    </Route>
     <Route path="/app" element={<RequireSession />}>
       <Route element={<RequireRole allowed={memberRoles} />}>
         <Route element={<PanelLayout />}>
           <Route index element={<AppScreen />} />
+          <Route path="booking-link" element={<BookingLinkScreen />} />
           <Route path="account" element={<AccountScreen />} />
           <Route path="notifications" element={<NotificationsScreen />} />
           <Route element={<RequireRole allowed={managementRoles} />}>
@@ -78,9 +124,16 @@ export function AppRoutes() {
             <Route path="staff" element={<StaffScreen />} />
             <Route path="working-hours" element={<WorkingHoursScreen />} />
             <Route path="appointments" element={<AppointmentsScreen />} />
+            <Route path="booking-requests" element={<BookingRequestsScreen />} />
+            <Route path="booking-settings" element={<BookingSettingsScreen />} />
+            <Route path="shop-design" element={<ShopDesignScreen />} />
+            <Route path="customers" element={<CustomersScreen />} />
             <Route path="reports" element={<ReportsScreen />} />
             <Route path="audit-log" element={<AuditScreen />} />
             <Route path="plan" element={<PlanScreen />} />
+          </Route>
+          <Route element={<RequireRole allowed={ownerRoles} />}>
+            <Route path="feature-flags" element={<FeatureFlagScreen />} />
           </Route>
           <Route path="*" element={<NotFound insidePanel />} />
         </Route>

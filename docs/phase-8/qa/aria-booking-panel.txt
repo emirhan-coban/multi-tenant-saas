@@ -1,0 +1,13 @@
+- complementary "Randevun":
+  - heading "Randevun" [level=1]
+  - paragraph: Emre · Koltuk 01
+  - list:
+    - listitem: ✓ Seçim
+    - listitem: 2 Bilgiler
+    - listitem: 3 Onay
+  - paragraph: Randevunu kaydedebilmemiz için müşteri hesabınla giriş yapman gerekiyor. Seçimlerin korunur.
+  - strong: Saç kesimi
+  - strong: ₺600
+  - text: Emre 18 Eylül · 14:00
+  - button "Geri"
+  - button "Giriş yap ve devam et"

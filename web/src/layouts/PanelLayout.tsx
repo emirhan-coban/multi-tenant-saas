@@ -5,6 +5,8 @@ import { OperationalFeedback } from '../screens/OperationsScreens';
 import { useAuth } from '../store/auth';
 import { useTenant } from '../store/tenant';
 import { canAccess, navigation, roleLabels } from '../router/navigation';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { disablePush } from '../pwa/push';
 
 export function PanelLayout() {
   const { session, logout } = useAuth();
@@ -35,12 +37,12 @@ export function PanelLayout() {
             <span className="nav-mark" aria-hidden="true">{item.mark}</span>{item.label}
           </NavLink>)}
         </nav>
-        <div className="sidebar-footer"><span className="role-badge">{roleLabels[role]}</span><p>{tenantName}</p><Button variant="quiet" onClick={logout}>Oturumu kapat</Button></div>
+        <div className="sidebar-footer"><span className="role-badge">{roleLabels[role]}</span><p>{tenantName}</p><Button variant="quiet" onClick={() => { void disablePush('staff').catch(() => undefined).finally(logout); }}>Oturumu kapat</Button></div>
       </div>
     </aside>
     <div className="panel-workspace">
       <header className="panel-topbar"><span>{tenantName}</span><span className="workspace-status"><span aria-hidden="true" />Çalışma alanı</span></header>
-      <main id="panel-content" className="panel-content" ref={content} tabIndex={-1}><Outlet /></main>
+      <main id="panel-content" className="panel-content" ref={content} tabIndex={-1}><OfflineBanner message="İnternet bağlantısı yok. Gösterilen bilgiler güncel olmayabilir; değişiklikler kaydedilmez." /><Outlet /></main>
       <footer className="panel-footer">TENANT OS <span>İşinize odaklanmanız için.</span></footer>
     </div>
   </div>;

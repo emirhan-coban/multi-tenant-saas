@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class TenantRateLimiter {
@@ -34,6 +35,11 @@ public class TenantRateLimiter {
         int capacity=pro?300:60;
         var config=BucketConfiguration.builder().addLimit(b -> b.capacity(capacity).refillIntervally(capacity,Duration.ofMinutes(1))).build();
         return manager().getProxy("saas:rate:"+tenant+":"+capacity,()->config).tryConsumeAndReturnRemaining(1);
+    }
+    public ConsumptionProbe consumeBooking(String address) {
+        var config=BucketConfiguration.builder().addLimit(b -> b.capacity(5).refillIntervally(5,Duration.ofHours(1))).build();
+        var fingerprint=UUID.nameUUIDFromBytes((address==null?"unknown":address).getBytes(StandardCharsets.UTF_8));
+        return manager().getProxy("saas:booking-ip:"+fingerprint,()->config).tryConsumeAndReturnRemaining(1);
     }
     @PreDestroy public void close() {if(connection!=null) connection.close();client.shutdown();}
 }
