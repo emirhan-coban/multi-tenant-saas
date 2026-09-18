@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.HashMap;
 import java.util.Map;
 import com.saas.backend.booking.BookingRateLimitException;
+import com.saas.backend.booking.BookingRateLimitUnavailableException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -50,7 +51,7 @@ public class GlobalExceptionHandler {
                     "VISIT_ALREADY_VERIFIED", "RESCHEDULE_WINDOW_CLOSED", "ACTIVE_RESCHEDULE_LIMIT",
                     "RESCHEDULE_ALREADY_DECIDED", "CLOSURE_CONFLICT", "STALE_SCENE_SELECTION", "FEATURE_DISABLED" -> HttpStatus.CONFLICT;
             case "NOT_FOUND", "CUSTOMER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "PUSH_NOT_CONFIGURED" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "PUSH_NOT_CONFIGURED", "RATE_LIMIT_UNAVAILABLE" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "INVALID_CREDENTIALS", "INVALID_REFRESH_TOKEN", "INVALID_CUSTOMER_CREDENTIALS", "INVALID_CUSTOMER_REFRESH_TOKEN" -> HttpStatus.UNAUTHORIZED;
             case "NO_TENANT", "QUOTA_EXCEEDED", "CUSTOMER_BLOCKED" -> HttpStatus.FORBIDDEN;
             // Faz 9: hesap güvenliği uçlarında saatlik istek sınırı.
@@ -73,6 +74,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(429)
                 .header("Retry-After", Long.toString(ex.getRetryAfterSeconds()))
                 .body(Map.of("code", "BOOKING_RATE_LIMIT", "message", ex.getMessage(), "details", Map.of()));
+    }
+
+    @ExceptionHandler(BookingRateLimitUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> bookingRateLimitUnavailable(BookingRateLimitUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "5")
+                .body(Map.of("code", "RATE_LIMIT_UNAVAILABLE", "message", ex.getMessage(), "details", Map.of()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

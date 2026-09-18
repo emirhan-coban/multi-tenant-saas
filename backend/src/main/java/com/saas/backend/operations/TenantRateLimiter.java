@@ -36,10 +36,31 @@ public class TenantRateLimiter {
         var config=BucketConfiguration.builder().addLimit(b -> b.capacity(capacity).refillIntervally(capacity,Duration.ofMinutes(1))).build();
         return manager().getProxy("saas:rate:"+tenant+":"+capacity,()->config).tryConsumeAndReturnRemaining(1);
     }
-    public ConsumptionProbe consumeBooking(String address) {
+    public ConsumptionProbe consumeBooking(UUID tenant, String address) {
         var config=BucketConfiguration.builder().addLimit(b -> b.capacity(5).refillIntervally(5,Duration.ofHours(1))).build();
         var fingerprint=UUID.nameUUIDFromBytes((address==null?"unknown":address).getBytes(StandardCharsets.UTF_8));
-        return manager().getProxy("saas:booking-ip:"+fingerprint,()->config).tryConsumeAndReturnRemaining(1);
+        return manager().getProxy("saas:booking-ip:" + tenant + ":" + fingerprint,()->config).tryConsumeAndReturnRemaining(1);
     }
+
+        public ConsumptionProbe consumeAuth(String scope, String address) {
+        int capacity = scope.endsWith("forgot") || scope.endsWith("reset") ? 10 : 20;
+        var config = BucketConfiguration.builder()
+            .addLimit(limit -> limit.capacity(capacity).refillIntervally(capacity, Duration.ofMinutes(1)))
+            .build();
+        var fingerprint = UUID.nameUUIDFromBytes((address == null ? "unknown" : address)
+            .getBytes(StandardCharsets.UTF_8));
+        return manager().getProxy("saas:auth-ip:" + scope + ":" + fingerprint, () -> config)
+            .tryConsumeAndReturnRemaining(1);
+        }
+
+        public ConsumptionProbe consumeAuthAccount(String scope, String account) {
+        var config = BucketConfiguration.builder()
+            .addLimit(limit -> limit.capacity(10).refillIntervally(10, Duration.ofMinutes(1)))
+            .build();
+        var fingerprint = UUID.nameUUIDFromBytes((account == null ? "unknown" : account)
+            .getBytes(StandardCharsets.UTF_8));
+        return manager().getProxy("saas:auth-account:" + scope + ":" + fingerprint, () -> config)
+            .tryConsumeAndReturnRemaining(1);
+        }
     @PreDestroy public void close() {if(connection!=null) connection.close();client.shutdown();}
 }

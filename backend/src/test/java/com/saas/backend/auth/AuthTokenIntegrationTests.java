@@ -60,6 +60,27 @@ class AuthTokenIntegrationTests extends PostgresTestBase {
         }
     }
 
+    @Test
+    void logoutAllRevokesExistingAccessAndRefreshTokens() throws Exception {
+        var accessToken = jwt.generateAccessToken(userId, tenantId, "OWNER");
+        var refreshToken = jwt.generateRefreshToken(userId, tenantId, "OWNER");
+
+        var logout = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/auth/logout-all"))
+                .header("Authorization", "Bearer " + accessToken)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+        assertEquals(204, http.send(logout, HttpResponse.BodyHandlers.ofString()).statusCode());
+        assertEquals(401, getMe(accessToken).statusCode());
+
+        var refresh = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/auth/refresh"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .build();
+        var refreshResponse = http.send(refresh, HttpResponse.BodyHandlers.ofString());
+        assertEquals(401, refreshResponse.statusCode());
+        assertEquals("INVALID_REFRESH_TOKEN", json.readTree(refreshResponse.body()).get("code").asString());
+    }
+
     private HttpResponse<String> getMe(String token) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/me"))
                 .header("Authorization", "Bearer " + token)

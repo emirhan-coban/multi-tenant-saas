@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Kuyruk derinliği ve en eski bekleyen işin yaşı. Veritabanı sorgusu metrik kazıma isteğinden ayrılmıştır. */
 @Component
 public class QueueDepthMetrics {
-    static final List<String> QUEUES = List.of("outbox", "push", "booking_approval");
+    static final List<String> QUEUES = List.of("outbox", "push", "booking_approval", "account_email");
     private final JdbcTemplate db;
     private final Map<String, AtomicLong> pending = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> oldest = new ConcurrentHashMap<>();

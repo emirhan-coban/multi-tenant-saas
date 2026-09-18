@@ -1,6 +1,7 @@
 package com.saas.backend.config;
 
 import com.saas.backend.auth.JwtService;
+import com.saas.backend.auth.SessionRevocationService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -20,9 +21,11 @@ import java.util.UUID;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final SessionRevocationService sessions;
 
-    public JwtAuthFilter(JwtService jwtService) {
+    public JwtAuthFilter(JwtService jwtService, SessionRevocationService sessions) {
         this.jwtService = jwtService;
+        this.sessions = sessions;
     }
 
     @Override
@@ -47,6 +50,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             UUID userId = UUID.fromString(claims.getSubject());
             UUID tenantId = UUID.fromString(claims.get("tenantId", String.class));
             String role = claims.get("role", String.class);
+                if (sessions.staffTokenRevoked(userId, claims)
+                    || !sessions.hasActiveMembership(userId, tenantId)) throw new JwtException("Revoked token");
 
             AuthenticatedUser principal = new AuthenticatedUser(userId, tenantId, role);
 

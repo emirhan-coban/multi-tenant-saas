@@ -11,7 +11,7 @@ Etiketlerde tenant, kullanıcı, e-posta, uç nokta gibi yüksek kardinaliteli/k
 | `saas.api.errors` | counter | code, status | İş kuralı hataları (`SLOT_UNAVAILABLE`, `FEATURE_DISABLED`…) |
 | `saas.booking.decisions` | counter | decision, source | Talep kararları, 3D/liste dağılımı |
 | `saas.trust.transitions` | counter | from, to, reason | Güven geçişleri (otomatik/manuel) |
-| `saas.queue.pending` | gauge | queue=outbox, push, booking_approval | Bekleyen iş |
+| `saas.queue.pending` | gauge | queue=outbox, push, booking_approval, account_email | Bekleyen iş |
 | `saas.queue.oldest_age_seconds` | gauge | queue | En eski bekleyen işin yaşı |
 | `saas.abuse.events` | counter | kind=tenant_rate_limit, booking_ip_rate_limit, visit_code_failure, blocked_customer | Kötüye kullanım sinyali |
 | `saas.push.deliveries` | counter | outcome=sent, retry, failed, dropped_gone | Push sağlığı |
@@ -30,6 +30,7 @@ Etiketlerde tenant, kullanıcı, e-posta, uç nokta gibi yüksek kardinaliteli/k
 | Ziyaret kodu kaba kuvvet | `abuse.events{kind=visit_code_failure}` 10 dk'da > 20 | Personel hesabını ve tenant'ı incele |
 | Rezervasyon spam | `abuse.events{kind=booking_ip_rate_limit}` 1 saatte > 50 | IP bazlı engel, gerekirse işletmede otomatik onayı kapat |
 | Outbox | `pending{queue=outbox}` > 200 | E-posta sağlayıcısı |
+| Hesap e-postası | `pending{queue=account_email}` > 20 veya yaş > 120 s | SMTP ayarı, şifreleme anahtarı ve dispatcher |
 | Saklama işi | 26 saattir yeni `data_retention_runs` satırı yok | Scheduler/ShedLock kilidi |
 
 Prometheus kullanılacaksa `io.micrometer:micrometer-registry-prometheus` bağımlılığı eklenip

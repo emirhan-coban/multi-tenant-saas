@@ -38,6 +38,7 @@ services:
       retries: 5
 
   backend:
+    image: ${BACKEND_IMAGE:-saas-backend}:${IMAGE_TAG:?zorunlu}
     build:
       context: ./backend
     restart: unless-stopped
@@ -45,9 +46,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       APP_DB_USER: ${APP_DB_USER}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
-      DB_OWNER_USER: ${POSTGRES_USER}
-      DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD}
       APP_REDIS_URL: redis://redis:6379
+      SPRING_FLYWAY_ENABLED: "false"
       # Güvenlik: aşağıdakiler eksikse uygulama açılmaz (SecurityStartupCheck).
       APP_SECURITY_DEV_SECRETS_ALLOWED: "false"
       APP_JWT_SECRET: ${APP_JWT_SECRET:?zorunlu}
@@ -59,18 +59,42 @@ services:
       APP_PUSH_SUBJECT: ${APP_PUSH_SUBJECT:?zorunlu}
       APP_PUSH_ALLOW_EPHEMERAL_KEYS: "false"
       APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:?zorunlu}
-      MAIL_ENABLED: ${MAIL_ENABLED:-true}
-      MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:-live}
-      GMAIL_ADDRESS: ${GMAIL_ADDRESS:-}
-      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+      APP_ACCOUNT_MAIL_KEY: ${APP_ACCOUNT_MAIL_KEY:?zorunlu}
+      MAIL_ENABLED: ${MAIL_ENABLED:?zorunlu}
+      MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:?zorunlu}
+      GMAIL_ADDRESS: ${GMAIL_ADDRESS:?zorunlu}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:?zorunlu}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
     # Ters vekil (frontend) üzerinden erişilir; doğrudan port açılmaz.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 3s
+      start_period: 60s
+      retries: 5
+
+  migration:
+    image: ${MIGRATION_IMAGE:-saas-migration}:${IMAGE_TAG:?zorunlu}
+    build:
+      context: ./backend
+      target: migration
+    restart: "no"
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      FLYWAY_USER: ${POSTGRES_USER}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
+    image: ${FRONTEND_IMAGE:-saas-web}:${IMAGE_TAG:?zorunlu}
     build:
       context: ./web
       args:
@@ -80,7 +104,7 @@ services:
       - "${WEB_PORT:-8080}:80"
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   pgdata:

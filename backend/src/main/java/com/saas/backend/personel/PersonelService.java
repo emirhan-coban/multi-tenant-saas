@@ -7,6 +7,7 @@ import com.saas.backend.user.User;
 import com.saas.backend.user.UserRepository;
 import com.saas.backend.membership.Membership;
 import com.saas.backend.membership.MembershipRepository;
+import com.saas.backend.auth.ApiException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,6 +84,18 @@ public class PersonelService {
                 .map(p -> new PersonelDtos.PersonelResponse(p.getId(), p.getDisplayName(), p.isActive()))
                 .toList();
     }
+
+            @Transactional
+            public void erisimiKaldir(AuthenticatedUser currentUser, java.util.UUID personelId) {
+            var personel = personelRepository.findByIdAndTenantId(personelId, currentUser.tenantId())
+                .orElseThrow(() -> new ApiException("NOT_FOUND", "Personel bulunamadı"));
+            if (!personel.isActive() && membershipRepository.findByUserIdAndTenantId(personel.getUser().getId(), currentUser.tenantId())
+                .map(Membership::isActive).orElse(false) == false) return;
+            personel.setActive(false);
+            membershipRepository.findByUserIdAndTenantId(personel.getUser().getId(), currentUser.tenantId())
+                .ifPresent(membership -> membership.setActive(false));
+            operations.audit(currentUser, "STAFF_ACCESS_REVOKED", "staff", personelId, java.util.Map.of());
+            }
 
     private String rastgeleSifreUret() {
         StringBuilder sb = new StringBuilder();

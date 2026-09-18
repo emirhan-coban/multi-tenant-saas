@@ -15,6 +15,7 @@ public record RetentionPolicy(
         Integer finishedOutboxDays,
         Integer finishedPushDeliveryDays,
         Integer disabledPushSubscriptionDays,
+        Integer finishedAccountEmailDays,
         Integer retentionRunDays,
         Integer batchSize) {
 
@@ -26,6 +27,7 @@ public record RetentionPolicy(
         finishedOutboxDays = orDefault(finishedOutboxDays, 30);
         finishedPushDeliveryDays = orDefault(finishedPushDeliveryDays, 7);
         disabledPushSubscriptionDays = orDefault(disabledPushSubscriptionDays, 30);
+        finishedAccountEmailDays = orDefault(finishedAccountEmailDays, 7);
         retentionRunDays = orDefault(retentionRunDays, 400);
         batchSize = orDefault(batchSize, 5000);
         // İdempotency penceresi, istemcinin makul yeniden deneme süresinden kısa olamaz.

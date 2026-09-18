@@ -9,6 +9,7 @@ import com.saas.backend.user.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.saas.backend.operations.AuthRateLimitService;
 
 import java.text.Normalizer;
 import java.util.List;
@@ -26,6 +27,7 @@ public class AuthService {
     private final SessionRevocationService sessions;
     private final org.springframework.jdbc.core.JdbcTemplate db;
     private final com.saas.backend.account.KvkkService kvkk;
+    private final AuthRateLimitService authRateLimits;
 
     public AuthService(
         UserRepository userRepository,
@@ -35,11 +37,13 @@ public class AuthService {
         JwtService jwtService,
         SessionRevocationService sessions,
         org.springframework.jdbc.core.JdbcTemplate db,
-        com.saas.backend.account.KvkkService kvkk
+        com.saas.backend.account.KvkkService kvkk,
+        AuthRateLimitService authRateLimits
     ) {
         this.sessions = sessions;
         this.db = db;
         this.kvkk = kvkk;
+        this.authRateLimits = authRateLimits;
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.membershipRepository = membershipRepository;
@@ -49,6 +53,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        authRateLimits.checkAccount("staff-register", request.email());
         if (userRepository.existsByEmail(request.email())) {
             throw new ApiException("EMAIL_EXISTS", "Bu e-posta zaten kayıtlı");
         }
@@ -76,8 +81,9 @@ public class AuthService {
         membership.setRole("OWNER");
         membershipRepository.save(membership);
 
-        String token = jwtService.generateAccessToken(user.getId(), tenant.getId(), "OWNER");
-        String refreshToken = jwtService.generateRefreshToken(user.getId(), tenant.getId(), "OWNER");
+        long sessionVersion = sessions.staffSessionVersion(user.getId());
+        String token = jwtService.generateAccessToken(user.getId(), tenant.getId(), "OWNER", sessionVersion);
+        String refreshToken = jwtService.generateRefreshToken(user.getId(), tenant.getId(), "OWNER", sessionVersion);
 
         return new AuthResponse(
             token,
@@ -88,6 +94,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
+        authRateLimits.checkAccount("staff-login", request.email());
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ApiException("INVALID_CREDENTIALS", "E-posta veya şifre hatalı"));
 
@@ -95,7 +102,7 @@ public class AuthService {
             throw new ApiException("INVALID_CREDENTIALS", "E-posta veya şifre hatalı");
         }
 
-        List<Membership> memberships = membershipRepository.findByUserId(user.getId());
+        List<Membership> memberships = membershipRepository.findByUserIdAndActiveTrue(user.getId());
 
         if (memberships.isEmpty()) {
             throw new ApiException("NO_TENANT", "Bu kullanıcıya ait işletme bulunamadı");
@@ -103,16 +110,9 @@ public class AuthService {
 
         Membership primary = memberships.get(0);
 
-        String token = jwtService.generateAccessToken(
-                user.getId(),
-                primary.getTenant().getId(),
-                primary.getRole()
-        );
-        String refreshToken = jwtService.generateRefreshToken(
-            user.getId(),
-            primary.getTenant().getId(),
-            primary.getRole()
-        );
+        long sessionVersion = sessions.staffSessionVersion(user.getId());
+        String token = jwtService.generateAccessToken(user.getId(), primary.getTenant().getId(), primary.getRole(), sessionVersion);
+        String refreshToken = jwtService.generateRefreshToken(user.getId(), primary.getTenant().getId(), primary.getRole(), sessionVersion);
 
         List<AuthResponse.MembershipInfo> membershipInfos = memberships.stream()
                 .map(m -> new AuthResponse.MembershipInfo(
@@ -139,14 +139,15 @@ public class AuthService {
         }
         if (sessions.staffTokenRevoked(userId, claims))
             throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
-        var memberships = membershipRepository.findByUserId(userId);
+        var memberships = membershipRepository.findByUserIdAndActiveTrue(userId);
         var membership = memberships.stream()
             .filter(item -> item.getTenant().getId().equals(tenantId))
             .findFirst()
             .orElseThrow(() -> new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi"));
 
-        String accessToken = jwtService.generateAccessToken(userId, tenantId, membership.getRole());
-        String newRefreshToken = jwtService.generateRefreshToken(userId, tenantId, membership.getRole());
+        long sessionVersion = sessions.staffSessionVersion(userId);
+        String accessToken = jwtService.generateAccessToken(userId, tenantId, membership.getRole(), sessionVersion);
+        String newRefreshToken = jwtService.generateRefreshToken(userId, tenantId, membership.getRole(), sessionVersion);
         var membershipInfos = memberships.stream()
             .map(item -> new AuthResponse.MembershipInfo(
                 item.getTenant().getId(), item.getTenant().getName(), item.getRole()))

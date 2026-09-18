@@ -6,6 +6,7 @@ import io.jsonwebtoken.JwtException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.saas.backend.operations.AuthRateLimitService;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -17,12 +18,15 @@ public class CustomerAuthService {
     private final JwtService jwtService;
     private final com.saas.backend.auth.SessionRevocationService sessions;
     private final com.saas.backend.account.KvkkService kvkk;
+    private final AuthRateLimitService authRateLimits;
 
     public CustomerAuthService(CustomerAccountRepository accounts, PasswordEncoder passwordEncoder, JwtService jwtService,
                                com.saas.backend.auth.SessionRevocationService sessions,
-                               com.saas.backend.account.KvkkService kvkk) {
+                               com.saas.backend.account.KvkkService kvkk,
+                               AuthRateLimitService authRateLimits) {
         this.sessions = sessions;
         this.kvkk = kvkk;
+        this.authRateLimits = authRateLimits;
         this.accounts = accounts;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -31,6 +35,7 @@ public class CustomerAuthService {
     @Transactional
     public CustomerAuthDtos.Response register(CustomerAuthDtos.Register request) {
         String email = normalizeEmail(request.email());
+        authRateLimits.checkAccount("customer-register", email);
         if (accounts.existsByEmail(email)) {
             throw new ApiException("CUSTOMER_EMAIL_EXISTS", "Bu e-posta ile bir müşteri hesabı zaten var");
         }
@@ -51,6 +56,7 @@ public class CustomerAuthService {
 
     @Transactional(readOnly = true)
     public CustomerAuthDtos.Response login(CustomerAuthDtos.Login request) {
+        authRateLimits.checkAccount("customer-login", request.email());
         var account = accounts.findByEmail(normalizeEmail(request.email()))
                 .filter(CustomerAccount::isActive)
                 .orElseThrow(this::invalidCredentials);
@@ -87,9 +93,10 @@ public class CustomerAuthService {
     }
 
     private CustomerAuthDtos.Response response(CustomerAccount account) {
+        long sessionVersion = sessions.customerSessionVersion(account.getId());
         return new CustomerAuthDtos.Response(
-                jwtService.generateCustomerAccessToken(account.getId()),
-                jwtService.generateCustomerRefreshToken(account.getId()),
+            jwtService.generateCustomerAccessToken(account.getId(), sessionVersion),
+            jwtService.generateCustomerRefreshToken(account.getId(), sessionVersion),
                 customer(account)
         );
     }

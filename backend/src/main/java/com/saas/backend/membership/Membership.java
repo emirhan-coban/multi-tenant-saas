@@ -29,6 +29,9 @@ public class Membership {
     @Column(nullable = false)
     private String role;
 
+    @Column(nullable = false)
+    private boolean active = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 }

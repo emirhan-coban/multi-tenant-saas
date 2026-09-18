@@ -29,7 +29,19 @@ RLS açık+zorunlu tablolar, politika sayısı, security definer fonksiyonlar, t
 **süper kullanıcı olmayan geçici bir rolle** tenant izolasyonu (bilinmeyen tenant 0 satır,
 gerçek tenant yalnızca kendi satırları). Süper kullanıcı RLS'i atladığı için bu ayrım zorunludur.
 
+`backup.sh`, `pg_export_snapshot()` ile açık tuttuğu snapshot üzerinden dump ve
+`*.meta.json` manifestini üretir. Restore tatbikatı tablo satır sayılarını bu manifestle
+karşılaştırır; canlı veritabanında backup sonrasında oluşan değişiklikler sonucu etkilemez.
+
 ## Gerçek geri dönüş (olay anında)
+
+İmaj kaynaklı bir geri dönüş için `ops/deploy/rollback.sh <önceki-image-tag>` kullanılır.
+Bu yalnızca uygulama imajlarını değiştirir; şema ve veriyi geri almaz. Veri bozulması veya
+kayıp şüphesinde aşağıdaki veritabanı kurtarma prosedürü ayrıca uygulanır.
+
+Silme kaydı canlı veritabanından bağımsız, erişimi sınırlı TSV ledger olarak saklanmalıdır.
+Geri yükleme sonrasında `ops/backup/reapply-customer-deletions.sh ledger.tsv` çalıştırılır;
+betik `TARGET_URL` ile açılan veritabanında kişisel alanları yeniden temizler.
 
 1. Yazmayı durdur: backend'i bakım moduna al veya ölçekle 0'a indir.
 2. En son doğrulanmış yedeği seç (`.sha256` eşleşmeli).

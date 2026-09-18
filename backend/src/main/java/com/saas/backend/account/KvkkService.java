@@ -56,6 +56,7 @@ public class KvkkService {
     /** Hesabı kapatır ve kişisel alanları geri döndürülemez biçimde siler. */
     @Transactional
     public void deleteCustomer(UUID account) {
+        db.update("insert into account_deletion_tombstones(subject_type,subject_id) values ('CUSTOMER',?) on conflict do nothing", account);
         int updated = db.update("""
                 update customer_accounts set
                     email = 'silinmis+' || id || '@hesap.gecersiz',

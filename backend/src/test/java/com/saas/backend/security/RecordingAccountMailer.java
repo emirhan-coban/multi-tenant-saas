@@ -1,7 +1,7 @@
 package com.saas.backend.security;
 
 import com.saas.backend.account.AccountMailer;
-import com.saas.backend.operations.GmailSender;
+import com.saas.backend.account.AccountMailQueue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,18 +16,20 @@ public class RecordingAccountMailer extends AccountMailer {
 
     private final List<Sent> sent = new ArrayList<>();
 
-    public RecordingAccountMailer(GmailSender mail) {
-        super(mail, "http://localhost:5173");
+    public RecordingAccountMailer(AccountMailQueue queue) {
+        super(queue, "http://localhost:5173");
     }
 
     @Override
-    public void passwordReset(String recipient, String token, boolean customer) {
+    public boolean passwordReset(String recipient, String token, boolean customer) {
         sent.add(new Sent(recipient, token, customer, "PASSWORD_RESET"));
+        return true;
     }
 
     @Override
-    public void emailVerification(String recipient, String token, boolean customer) {
+    public boolean emailVerification(String recipient, String token, boolean customer) {
         sent.add(new Sent(recipient, token, customer, "EMAIL_VERIFY"));
+        return true;
     }
 
     public List<Sent> sent() {

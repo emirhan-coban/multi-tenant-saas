@@ -2,7 +2,7 @@ package com.saas.backend.security;
 
 import com.saas.backend.PostgresTestBase;
 import com.saas.backend.account.AccountMailer;
-import com.saas.backend.operations.GmailSender;
+import com.saas.backend.account.AccountMailQueue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,8 +34,8 @@ class AccountSecurityIntegrationTests extends PostgresTestBase {
     static class MailerConfig {
         @Bean
         @Primary
-        AccountMailer recordingMailer(GmailSender mail) {
-            return new RecordingAccountMailer(mail);
+        AccountMailer recordingMailer(AccountMailQueue queue) {
+            return new RecordingAccountMailer(queue);
         }
     }
 

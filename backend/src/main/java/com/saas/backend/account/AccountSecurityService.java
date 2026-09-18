@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.saas.backend.operations.AuthRateLimitService;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -30,14 +31,17 @@ public class AccountSecurityService {
     private final AccountMailer mailer;
     private final PasswordEncoder passwords;
     private final SessionRevocationService sessions;
+    private final AuthRateLimitService authRateLimits;
 
     public AccountSecurityService(JdbcTemplate db, AccountTokenService tokens, AccountMailer mailer,
-                                  PasswordEncoder passwords, SessionRevocationService sessions) {
+                                  PasswordEncoder passwords, SessionRevocationService sessions,
+                                  AuthRateLimitService authRateLimits) {
         this.db = db;
         this.tokens = tokens;
         this.mailer = mailer;
         this.passwords = passwords;
         this.sessions = sessions;
+        this.authRateLimits = authRateLimits;
     }
 
     // ------------------------------------------------------------------ şifre sıfırlama
@@ -45,6 +49,7 @@ public class AccountSecurityService {
     @Transactional
     public void requestPasswordReset(String email, boolean customer) {
         String normalized = normalize(email);
+        authRateLimits.checkAccount(customer ? "customer-forgot" : "staff-forgot", normalized);
         UUID account = findAccount(normalized, customer);
         if (account == null) {
             // Hesap yok: aynı yanıt döner, hiçbir şey yapılmaz.
@@ -52,7 +57,7 @@ public class AccountSecurityService {
             return;
         }
         String token = tokens.issue(subject(account, customer), AccountTokenService.Purpose.PASSWORD_RESET);
-        mailer.passwordReset(normalized, token, customer);
+        if (!mailer.passwordReset(normalized, token, customer)) tokens.discard(token);
     }
 
     @Transactional
@@ -82,7 +87,7 @@ public class AccountSecurityService {
         if (row.getFirst().get("email_verified_at") != null)
             throw new ApiException("EMAIL_ALREADY_VERIFIED", "E-posta adresiniz zaten doğrulanmış");
         String token = tokens.issue(subject(account, customer), AccountTokenService.Purpose.EMAIL_VERIFY);
-        mailer.emailVerification((String) row.getFirst().get("email"), token, customer);
+        if (!mailer.emailVerification((String) row.getFirst().get("email"), token, customer)) tokens.discard(token);
     }
 
     @Transactional

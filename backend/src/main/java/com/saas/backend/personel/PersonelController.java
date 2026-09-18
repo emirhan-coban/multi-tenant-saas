@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/staff")
@@ -33,5 +34,13 @@ public class PersonelController {
     @GetMapping
     public List<PersonelDtos.PersonelResponse> listele() {
         return personelService.listele();
+    }
+
+    @DeleteMapping("/{personelId}/access")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public ResponseEntity<Void> erisimiKaldir(@AuthenticationPrincipal AuthenticatedUser user,
+                                               @PathVariable UUID personelId) {
+        personelService.erisimiKaldir(user, personelId);
+        return ResponseEntity.noContent().build();
     }
 }

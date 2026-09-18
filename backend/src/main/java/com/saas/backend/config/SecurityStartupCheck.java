@@ -7,6 +7,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import com.saas.backend.account.AccountMailCipher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,18 +31,33 @@ public class SecurityStartupCheck {
     private final String opsToken;
     private final String vapidPrivateKey;
     private final boolean ephemeralPushKeys;
+    private final boolean emailEnabled;
+    private final String emailMode;
+    private final String emailAddress;
+    private final String emailPassword;
+    private final String accountMailKey;
 
     public SecurityStartupCheck(SecurityProperties security, JdbcTemplate db,
                                 @Value("${app.jwt.secret}") String jwtSecret,
                                 @Value("${app.ops.metrics-token:}") String opsToken,
                                 @Value("${app.push.vapid-private-key:}") String vapidPrivateKey,
-                                @Value("${app.push.allow-ephemeral-keys:true}") boolean ephemeralPushKeys) {
+                                @Value("${app.push.allow-ephemeral-keys:true}") boolean ephemeralPushKeys,
+                                @Value("${app.email.enabled:false}") boolean emailEnabled,
+                                @Value("${app.email.mode:test}") String emailMode,
+                                @Value("${spring.mail.username:}") String emailAddress,
+                                @Value("${spring.mail.password:}") String emailPassword,
+                                @Value("${app.account.mail-key:}") String accountMailKey) {
         this.security = security;
         this.db = db;
         this.jwtSecret = jwtSecret;
         this.opsToken = opsToken;
         this.vapidPrivateKey = vapidPrivateKey;
         this.ephemeralPushKeys = ephemeralPushKeys;
+        this.emailEnabled = emailEnabled;
+        this.emailMode = emailMode;
+        this.emailAddress = emailAddress;
+        this.emailPassword = emailPassword;
+        this.accountMailKey = accountMailKey;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -79,6 +95,16 @@ public class SecurityStartupCheck {
             problems.add("APP_PUSH_VAPID_PRIVATE_KEY boş: bildirim anahtarları kalıcı olmalı");
         if (ephemeralPushKeys)
             problems.add("APP_PUSH_ALLOW_EPHEMERAL_KEYS=false olmalı");
+        if (!emailEnabled)
+            problems.add("MAIL_ENABLED=true olmalı: hesap güvenliği e-postaları zorunludur");
+        if (!"live".equals(emailMode))
+            problems.add("MAIL_DELIVERY_MODE=live olmalı: test modu üretimde kullanılamaz");
+        if (emailAddress == null || emailAddress.isBlank())
+            problems.add("GMAIL_ADDRESS boş: hesap güvenliği e-postaları gönderilemez");
+        if (emailPassword == null || emailPassword.isBlank())
+            problems.add("GMAIL_APP_PASSWORD boş: hesap güvenliği e-postaları gönderilemez");
+        if (!AccountMailCipher.validConfiguredKey(accountMailKey))
+            problems.add("APP_ACCOUNT_MAIL_KEY geçerli Base64 biçiminde 32 bayt olmalı");
         if (security.hstsMaxAgeSeconds() <= 0)
             problems.add("APP_HSTS_MAX_AGE_SECONDS pozitif olmalı");
         String privilege = databasePrivilege();

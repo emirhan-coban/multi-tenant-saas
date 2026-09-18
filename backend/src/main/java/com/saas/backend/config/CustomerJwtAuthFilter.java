@@ -1,6 +1,7 @@
 package com.saas.backend.config;
 
 import com.saas.backend.auth.JwtService;
+import com.saas.backend.auth.SessionRevocationService;
 import com.saas.backend.customer.CustomerPrincipal;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -19,9 +20,11 @@ import java.util.UUID;
 @Component
 public class CustomerJwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
+    private final SessionRevocationService sessions;
 
-    public CustomerJwtAuthFilter(JwtService jwtService) {
+    public CustomerJwtAuthFilter(JwtService jwtService, SessionRevocationService sessions) {
         this.jwtService = jwtService;
+        this.sessions = sessions;
     }
 
     @Override
@@ -37,7 +40,9 @@ public class CustomerJwtAuthFilter extends OncePerRequestFilter {
                 && header != null && header.startsWith("Bearer ")) {
             try {
                 var claims = jwtService.parseCustomerAccessToken(header.substring(7));
-                var principal = new CustomerPrincipal(UUID.fromString(claims.getSubject()));
+                var customerId = UUID.fromString(claims.getSubject());
+                if (sessions.customerTokenRevoked(customerId, claims)) throw new JwtException("Revoked token");
+                var principal = new CustomerPrincipal(customerId);
                 var authentication = new UsernamePasswordAuthenticationToken(
                         principal, null, List.of(() -> "ROLE_CUSTOMER"));
                 SecurityContextHolder.getContext().setAuthentication(authentication);

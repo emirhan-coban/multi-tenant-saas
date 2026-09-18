@@ -61,6 +61,10 @@ public class DataRetentionService {
         totals.put("push_subscriptions", (long) db.update("""
                 delete from push_subscriptions where disabled_at < now() - (? * interval '1 day')
                 """, policy.disabledPushSubscriptionDays()));
+        totals.put("account_email_outbox", (long) db.update("""
+                delete from account_email_outbox where status in ('SENT','SKIPPED','FAILED')
+                  and finished_at < now() - (? * interval '1 day')
+                """, policy.finishedAccountEmailDays()));
         // Faz 9: kullanılmış/süresi dolmuş hesap token'ları saklanmaz.
         totals.put("account_tokens", (long) db.update("""
                 delete from account_tokens

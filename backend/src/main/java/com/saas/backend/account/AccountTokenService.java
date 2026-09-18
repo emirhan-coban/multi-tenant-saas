@@ -61,6 +61,7 @@ public class AccountTokenService {
     @Transactional
     public String issue(Subject subject, Purpose purpose) {
         throttle(subject, purpose);
+        skipQueuedMessages(subject, purpose, "SUPERSEDED");
         // Açık token en fazla bir tane: önceki istek geçersizleşir.
         db.update("update account_tokens set used_at=now() where subject_type=? and subject_id=? and purpose=? and used_at is null",
                 subject.type(), subject.id(), purpose.name());
@@ -87,7 +88,17 @@ public class AccountTokenService {
                 """, hash(token), purpose.name());
         if (rows.isEmpty()) throw invalid();
         var row = rows.getFirst();
+        skipQueuedMessage(hash(token), "TOKEN_USED");
         return new Subject((String) row.get("subject_type"), (UUID) row.get("subject_id"));
+    }
+
+    /** Kuyruğa alınamayan bir bağlantıyı kullanılabilir bırakmaz. */
+    @Transactional
+    public void discard(String token) {
+        if (token == null || token.isBlank()) return;
+        String tokenHash = hash(token);
+        db.update("update account_tokens set used_at=now() where token_hash=? and used_at is null", tokenHash);
+        skipQueuedMessage(tokenHash, "QUEUE_FAILED");
     }
 
     /** Süresi geçmiş ve kullanılmış token'ları temizler (veri saklama turu çağırır). */
@@ -107,6 +118,22 @@ public class AccountTokenService {
                 """, Long.class, subject.type(), subject.id(), purpose.name());
         if (recent != null && recent >= hourlyLimit)
             throw new ApiException("TOO_MANY_REQUESTS", "Çok fazla istek gönderildi. Bir saat sonra tekrar deneyin.");
+    }
+
+    private void skipQueuedMessages(Subject subject, Purpose purpose, String reason) {
+        db.update("""
+                update account_email_outbox q set status='SKIPPED',finished_at=now(),claimed_at=null,last_error=?
+                from account_tokens t
+                where q.token_hash=t.token_hash and q.status in ('PENDING','PROCESSING')
+                  and t.subject_type=? and t.subject_id=? and t.purpose=?
+                """, reason, subject.type(), subject.id(), purpose.name());
+    }
+
+    private void skipQueuedMessage(String tokenHash, String reason) {
+        db.update("""
+                update account_email_outbox set status='SKIPPED',finished_at=now(),claimed_at=null,last_error=?
+                where token_hash=? and status in ('PENDING','PROCESSING')
+                """, reason, tokenHash);
     }
 
     private static ApiException invalid() {

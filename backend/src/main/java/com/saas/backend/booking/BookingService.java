@@ -107,7 +107,7 @@ public class BookingService {
             return response(previous, tenant.slug(), trust(previous.getCustomerId()).getTrustState());
         }
 
-        rateLimiter.check(http.getRemoteAddr());
+        rateLimiter.check(tenant.id(), http.getRemoteAddr());
         var customer = activeCustomer(accountId);
         var tenantCustomer = tenantCustomer(tenant.id(), accountId);
         lockCustomer(tenantCustomer);

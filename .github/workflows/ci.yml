@@ -17,6 +17,11 @@ jobs:
     name: Backend testleri
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      matrix:
+        timezone: [UTC, Europe/Istanbul]
+    env:
+      TZ: ${{ matrix.timezone }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +32,7 @@ jobs:
           cache: maven
 
       # Testcontainers Docker'ı kendisi yönetir; runner'da hazır gelir.
-      - name: Testler
+      - name: Testler (${{ matrix.timezone }})
         working-directory: backend
         run: ./mvnw -B test
 
@@ -93,21 +98,54 @@ jobs:
       - name: Backend imajı
         run: docker build -t saas-backend:ci ./backend
 
+      - name: Migration imajı
+        run: docker build --target migration -t saas-migration:ci ./backend
+
       - name: Ön yüz imajı
         run: docker build -t saas-web:ci ./web
 
-      # İmaj gerçekten açılıyor mu: sağlık ucu yanıt verene kadar beklenir.
-      - name: Ön yüz imajı açılıyor mu
+      - name: Smoke ortamı için geçici ayarlar
         run: |
-          docker run -d --name web-ci -p 8088:80 saas-web:ci
-          for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:8088/index.html >/dev/null; then
-              echo "Ön yüz imajı ayakta."
-              docker rm -f web-ci
+          cat > .env.ci <<'EOF'
+          POSTGRES_DB=saasdb
+          IMAGE_TAG=ci
+          POSTGRES_USER=saas_owner
+          POSTGRES_PASSWORD=ci-owner-password
+          APP_DB_USER=saas_app
+          APP_DB_PASSWORD=ci-app-password
+          APP_JWT_SECRET=ci-jwt-secret-123456789012345678901234
+          APP_ALLOWED_ORIGINS=https://ci.example.test
+          APP_HSTS_MAX_AGE_SECONDS=31536000
+          APP_OPS_METRICS_TOKEN=ci-ops-token
+          APP_PUSH_VAPID_PUBLIC_KEY=
+          APP_PUSH_VAPID_PRIVATE_KEY=
+          APP_PUSH_SUBJECT=mailto:ci@example.test
+          APP_PUBLIC_BASE_URL=https://ci.example.test
+          APP_ACCOUNT_MAIL_KEY=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
+          MAIL_ENABLED=false
+          MAIL_DELIVERY_MODE=test
+          GMAIL_ADDRESS=
+          GMAIL_APP_PASSWORD=
+          EOF
+
+      # Frontend nginx, backend readiness, PostgreSQL ve Redis aynı compose ağında sınanır.
+      - name: Üretim benzeri smoke ortamını aç
+        run: |
+          docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml --env-file .env.ci up -d --no-build
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/index.html >/dev/null \
+              && curl -fsS http://127.0.0.1:8080/api/health >/dev/null \
+              && docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml --env-file .env.ci \
+                exec -T backend wget -qO- http://127.0.0.1:8080/actuator/health/readiness \
+                | grep -q '"status":"UP"'; then
+              echo "Backend, PostgreSQL, Redis ve nginx smoke kontrolü geçti."
               exit 0
             fi
             sleep 2
           done
-          docker logs web-ci
-          docker rm -f web-ci
+          docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml --env-file .env.ci logs
           exit 1
+
+      - name: Smoke ortamını kapat
+        if: always()
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml --env-file .env.ci down -v

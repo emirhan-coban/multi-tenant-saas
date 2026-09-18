@@ -1,0 +1,42 @@
+groups:
+  - name: saas-operations
+    rules:
+      - alert: SaasApiServerErrors
+        expr: increase(saas_http_server_errors_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SaaS API 5xx errors are increasing"
+
+      - alert: SaasApiLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket[10m]))) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SaaS API p95 latency exceeds one second"
+
+      - alert: SaasBookingApprovalQueueOld
+        expr: saas_queue_oldest_age_seconds{queue="booking_approval"} > 600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Booking approval queue is aging"
+
+      - alert: SaasAccountEmailQueueOld
+        expr: saas_queue_oldest_age_seconds{queue="account_email"} > 120
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Account email delivery queue is delayed"
+
+      - alert: SaasPushQueueLarge
+        expr: saas_queue_pending{queue="push"} > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Push delivery queue is large"

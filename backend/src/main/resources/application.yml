@@ -17,7 +17,7 @@ spring:
     open-in-view: false
 
   flyway:
-    enabled: true
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
     locations: classpath:db/migration
     # Göçler şema sahibiyle çalışır; uygulama rolünün DDL yetkisi yoktur.
     user: ${DB_OWNER_USER:admin}
@@ -28,11 +28,18 @@ management:
     web:
       exposure:
         # /actuator/metrics yalnızca APP_OPS_METRICS_TOKEN ile açılır (OpsTokenFilter); health herkese açıktır.
-        include: health, info, metrics
+        include: health, info, metrics, prometheus
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
   health:
+    groups:
+      liveness:
+        include: livenessState
+      readiness:
+        include: readinessState,db,redis
     mail:
       # Posta sunucusuna erişim bir CANLILIK koşulu değildir: SMTP'ye ulaşılamasa da
       # uygulama randevu almaya devam eder. Gösterge açıkken /actuator/health 503 döner;
@@ -50,6 +57,9 @@ management:
 
 server:
   port: 8080
+  # Production'da backend doğrudan yayınlanmaz; yalnızca nginx'in temizlediği
+  # X-Forwarded-* başlıkları güvenilir istemci adresi olarak kullanılır.
+  forward-headers-strategy: framework
 
 app:
   jwt:
@@ -81,6 +91,10 @@ app:
   account:
     password-reset-minutes: 60
     email-verify-hours: 48
+    # Üretimde ayrı 32 bayt Base64 anahtar zorunludur; geliştirmede JWT anahtarından türetilir.
+    mail-key: ${APP_ACCOUNT_MAIL_KEY:}
+    mail-interval-ms: 15000
+    mail-initial-delay-ms: 30000
     # Hesap başına saatlik istek üst sınırı (şifre sıfırlama / doğrulama).
     hourly-request-limit: 5
 
@@ -100,3 +114,4 @@ app:
     finished-outbox-days: 30
     finished-push-delivery-days: 7
     disabled-push-subscription-days: 30
+    finished-account-email-days: 7

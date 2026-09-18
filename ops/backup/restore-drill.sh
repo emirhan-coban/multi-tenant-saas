@@ -6,6 +6,9 @@ set -euo pipefail
 : "${ADMIN_URL:?ADMIN_URL (CREATE DATABASE yetkili bağlantı) tanımlı olmalı}"
 : "${SOURCE_URL:?SOURCE_URL (karşılaştırma için kaynak) tanımlı olmalı}"
 DUMP="${1:?yedek dosyası verilmeli}"
+META="$DUMP.meta.json"
+[[ -s "$META" ]] || { echo "Manifest bulunamadı: $META" >&2; exit 2; }
+command -v jq >/dev/null || { echo "jq gerekli: manifest doğrulanamıyor" >&2; exit 2; }
 DRILL_DB="restore_drill_$(date -u +%Y%m%d%H%M%S)"
 ADMIN_BASE="${ADMIN_URL%%\?*}"
 ADMIN_QUERY=""; [[ "$ADMIN_URL" == *\?* ]] && ADMIN_QUERY="?${ADMIN_URL#*\?}"
@@ -31,10 +34,11 @@ fail=0
 check() { if [[ "$2" == "$3" ]]; then echo "   PASS $1 ($2)"; else echo "   FAIL $1: kaynak=$2 geri_yüklenen=$3"; fail=1; fi; }
 q() { psql "$1" -At -v ON_ERROR_STOP=1 -c "$2"; }
 
-check "flyway sürümü" "$(q "$SOURCE_URL" "select max(version::int) from flyway_schema_history where success")" \
+check "flyway sürümü" "$(jq -r '.flywayVersion' "$META")" \
                       "$(q "$DRILL_URL" "select max(version::int) from flyway_schema_history where success")"
 COUNT_SQL="select string_agg(t || '=' || c, ',' order by t) from (select table_name t, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I', table_name), false, true, '')))[1]::text::bigint c from information_schema.tables where table_schema='public' and table_type='BASE TABLE') s"
-check "tablo satır sayıları" "$(q "$SOURCE_URL" "$COUNT_SQL")" "$(q "$DRILL_URL" "$COUNT_SQL")"
+MANIFEST_COUNTS=$(jq -r '.tableRowCounts | to_entries | sort_by(.key) | map("\(.key)=\(.value)") | join(",")' "$META")
+check "manifest tablo satır sayıları" "$MANIFEST_COUNTS" "$(q "$DRILL_URL" "$COUNT_SQL")"
 RLS_SQL="select string_agg(relname || ':' || relrowsecurity || relforcerowsecurity, ',' order by relname) from pg_class where relnamespace='public'::regnamespace and relkind='r' and relrowsecurity"
 check "RLS açık/zorunlu tablolar" "$(q "$SOURCE_URL" "$RLS_SQL")" "$(q "$DRILL_URL" "$RLS_SQL")"
 check "RLS politika sayısı" "$(q "$SOURCE_URL" "select count(*) from pg_policies where schemaname='public'")" "$(q "$DRILL_URL" "select count(*) from pg_policies where schemaname='public'")"

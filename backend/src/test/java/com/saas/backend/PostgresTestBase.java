@@ -97,6 +97,7 @@ public abstract class PostgresTestBase {
         registry.add("spring.flyway.password",POSTGRES::getPassword);
         registry.add("app.redis-url",()->"redis://"+REDIS.getHost()+":"+REDIS.getMappedPort(6379));
         registry.add("app.outbox.initial-delay-ms",()->"3600000");
+        registry.add("app.account.mail-initial-delay-ms",()->"3600000");
         // Faz 8 zamanlanmış işleri testlerde kendiliğinden çalışmaz; testler ilgili servisi doğrudan çağırır.
         registry.add("app.push.initial-delay-ms",()->"3600000");
         registry.add("app.metrics.queue-initial-delay-ms",()->"3600000");

@@ -93,6 +93,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new com.saas.backend.operations.AuthRateLimitFilter(limiter), JwtAuthFilter.class)
                 .addFilterAfter(customerJwtAuthFilter, JwtAuthFilter.class)
                 .addFilterAfter(new com.saas.backend.operations.RateLimitFilter(limiter,operations,metrics), CustomerJwtAuthFilter.class)
                 .addFilterAfter(new com.saas.backend.ops.OpsTokenFilter(opsToken), com.saas.backend.operations.RateLimitFilter.class);

@@ -288,8 +288,8 @@ class CustomerBookingIntegrationTests extends PostgresTestBase {
         var result = json.readTree(moved.body());
         assertEquals(target, result.get("startsAt").asString());
         assertEquals("APPROVED", result.get("rescheduleStatus").asString());
-        assertEquals(target, db.queryForObject("select starts_at::text from appointments where id=?", String.class,
-                UUID.fromString(created.get("appointmentId").asString())).replace(" ", "T").replace("+00", "Z"));
+        assertEquals(Instant.parse(target), db.queryForObject("select starts_at from appointments where id=?", java.sql.Timestamp.class,
+                UUID.fromString(created.get("appointmentId").asString())).toInstant());
 
         var replay = post("/api/customer/v1/booking-requests/" + created.get("id").asString() + "/reschedule", command, customer.token(), key);
         assertEquals(200, replay.statusCode(), replay.body());

@@ -17,6 +17,17 @@ public class OutboxWorker {
             for(var row:rows) {
                 UUID id=(UUID)row.get("id"),recipient=(UUID)row.get("recipient_id"),appointment=(UUID)row.get("appointment_id");
                 if(row.get("event_type").toString().startsWith("CUSTOMER_")) {
+                    boolean customerActive = Boolean.TRUE.equals(db.queryForObject("""
+                        select exists(
+                          select 1 from appointments a
+                          join tenant_customers tc on tc.tenant_id=a.tenant_id and tc.id=a.customer_id
+                          join customer_accounts ca on ca.id=tc.customer_account_id
+                          where a.tenant_id=? and a.id=? and ca.active and ca.anonymized_at is null)
+                        """, Boolean.class, tenant, appointment));
+                    if (!customerActive) {
+                        db.update("update outbox set status='SKIPPED' where id=? and tenant_id=?", id, tenant);
+                        continue;
+                    }
                     try {
                         switch(customerEmail.deliver(row)) {
                             case SENT -> db.update("update outbox set status='SENT',sent_at=now(),attempts=attempts+1 where id=? and tenant_id=?",id,tenant);

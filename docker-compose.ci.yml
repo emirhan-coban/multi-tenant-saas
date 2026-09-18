@@ -1,0 +1,14 @@
+# CI smoke overlay: production imajlarını gerçek PostgreSQL, Redis ve nginx ağıyla açar.
+services:
+  migration:
+    image: saas-migration:ci
+
+  backend:
+    image: saas-backend:ci
+    environment:
+      APP_SECURITY_DEV_SECRETS_ALLOWED: "true"
+      APP_PUSH_ALLOW_EPHEMERAL_KEYS: "true"
+      MAIL_ENABLED: "false"
+
+  frontend:
+    image: saas-web:ci
