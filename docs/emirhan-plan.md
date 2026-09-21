@@ -1,6 +1,6 @@
 # Satışa hazırlık uygulama planı
 
-Tarih: 18 Eylül 2026. Durum: uygulama başladı; ilk güvenlik paketi kısmen tamamlandı.
+Tarih: 18 Eylül 2026 (son doğrulama: 21 Eylül 2026). Durum: Aşama 1-3 kodda ve testte doğrulandı (backend 173/173, web 127/127, production build geçti). Aşama 4-5'in büyük kısmı da kodda mevcut ve bu incelemede doğrulandı; kalan maddeler işaretsiz bırakıldı ve en altta ayrıca listelendi.
 
 ## Hedef ve kapsam
 
@@ -98,13 +98,13 @@ Bunlar eksikse yerel yapılandırma/testler tamamlanır; dış ortam adımı bek
 
 ## Aşama 4 — Kolay kurulum ve pilot deneyimi
 
-- [ ] Devam edilebilir kurulum: profil→hizmet/fiyat→personel→saatler→deneme randevusu→QR.
-- [ ] Geçici şifre gösterimi yerine süreli, tek kullanımlık personel daveti oluştur.
-- [ ] Mobil işletme panelinde Bugün, bekleyen talepler ve hızlı randevu işlemlerini öne çıkar.
-- [ ] STAFF kendi programına erişecekse backend sahiplik kontrolüyle ayrı kapsam uygula.
-- [ ] Liste rezervasyonunu 3D kapalıyken ve düşük donanımda eksiksiz tut.
+- [x] Devam edilebilir kurulum: profil→hizmet/fiyat→personel→saatler→deneme randevusu→QR.
+- [x] Geçici şifre gösterimi yerine süreli, tek kullanımlık personel daveti oluştur.
+- [x] Mobil işletme panelinde Bugün, bekleyen talepler ve hızlı randevu işlemlerini öne çıkar.
+- [x] STAFF kendi programına erişecekse backend sahiplik kontrolüyle ayrı kapsam uygula.
+- [x] Liste rezervasyonunu 3D kapalıyken ve düşük donanımda eksiksiz tut.
 - [ ] Gerçek Android/iPhone'da klavye, saat dilimi, yavaş ağ ve bağlantı kesilmesini dene.
-- [ ] Dört ve üzeri çalışanı olan pilotta mevcut 3D koltuk sınırını liste akışıyla yönet;
+- [x] Dört ve üzeri çalışanı olan pilotta mevcut 3D koltuk sınırını liste akışıyla yönet;
       koltuk genişletmesini satış engeli yapma.
 - [ ] Kurulum süresi, rezervasyon dönüşümü, onay süresi, bildirim başarısı ve destek
       taleplerini kişisel veriyi gereksiz toplamadan ölç.
@@ -114,15 +114,15 @@ müşteri mobilde oluşturma/taşıma/iptali tamamlıyor; pilotta kullanılan he
 
 ## Aşama 5 — Abonelik ve satışa hazırlık
 
-- [ ] Tek ücretli paket ve deneme süresi için hak/kota tablosunu tanımla.
-- [ ] Abonelik durumunu özellik haklarından ayır: deneme, aktif, ödeme gecikmesi,
+- [x] Tek ücretli paket ve deneme süresi için hak/kota tablosunu tanımla.
+- [x] Abonelik durumunu özellik haklarından ayır: deneme, aktif, ödeme gecikmesi,
       dönem sonunda iptal ve kısıtlı erişim davranışlarını belirle.
-- [ ] Sağlayıcı seçimi sonrası hosted checkout ve doğrulanmış webhook uygula.
-- [ ] Tekrarlı/sırasız webhook, tutar/para birimi, yanlış tenant eşlemesi ve mutabakatı test et.
-- [ ] Başarısız ödemede ek süre ve uyarı sun; mevcut randevu/veri erişimini birden silme.
-- [ ] Tahsilat/fatura referanslarını ve ilk müşteri faturalama iş akışını oluştur.
-- [ ] Satış sayfası: somut fayda, demo rezervasyon, paket kapsamı, destek ve sözleşmeler.
-- [ ] Yardım/iptal talebi/destek sürecini ve destek sorumlusunu tanımla.
+- [x] Sağlayıcı seçimi sonrası hosted checkout ve doğrulanmış webhook uygula.
+- [x] Tekrarlı/sırasız webhook, tutar/para birimi, yanlış tenant eşlemesi ve mutabakatı test et.
+- [x] Başarısız ödemede ek süre ve uyarı sun; mevcut randevu/veri erişimini birden silme.
+- [x] Tahsilat/fatura referanslarını ve ilk müşteri faturalama iş akışını oluştur.
+- [x] Satış sayfası: somut fayda, demo rezervasyon, paket kapsamı, destek ve sözleşmeler.
+- [x] Yardım/iptal talebi/destek sürecini ve destek sorumlusunu tanımla.
 
 Kabul: sandbox'ta başarılı/başarısız ödeme, yenileme, iptal ve olay tekrarı geçiyor;
 tarayıcı dönüşü ödeme kanıtı sayılmıyor; demo yükseltme kaldırılıyor; tenant hakları doğru.
@@ -159,3 +159,32 @@ personel erişimi ve rate limit sırasıyla ele alınır.
 
 WhatsApp, kapora, çok şube, CSV içe aktarma, geniş 3D özelleştirme ve native mobil
 uygulama ilk ücretli sürümün zorunlu kapsamına alınmaz; pilot talebiyle ayrı planlanır.
+
+## Doğrulama notu (21 Eylül 2026)
+
+Bu oturumda `8534f9e` ve `5e80f02` commit'leri incelendi, backend ve web test paketleri
+gerçekten çalıştırıldı (Docker + `test.command`/`webtest.command` izleyicileri üzerinden):
+
+- Backend: **173/173 test geçti**, `BUILD SUCCESS`.
+- Web: **127/127 test geçti**, production build başarılı (`npm run build`).
+
+Yukarıda işaretlenen Aşama 4-5 maddeleri, koddaki karşılıkları tek tek doğrulanarak
+işaretlendi (örn. `OnboardingController`/`OnboardingScreen`, `staff_invitations` tablosu ve
+tek kullanımlık davet token'ı, `AppScreen`'deki Bugün/Onay bekleyen kartları ve
+`BookingRequestsScreen`'deki hızlı onay/red işlemleri, `AppointmentService.list`'te STAFF için
+zorunlu `ownStaffId` kapsamı, `shop.staff.length > 3` durumunda liste akışına yönlendirme,
+`BillingService`/`BillingController`/`IyzicoBillingProvider` ve abonelik durum makinesi,
+`SalesScreen`+`DemoBookingScreen`, `SupportScreen`/`SupportController`).
+
+**Gerçekten eksik veya doğrulanmamış kalanlar:**
+
+- Gerçek Android/iPhone cihazda klavye, saat dilimi, yavaş ağ ve bağlantı kesilmesi testi —
+  koda dayanmıyor, elle yapılması gerekiyor.
+- Kurulum süresi, rezervasyon dönüşümü, onay süresi, bildirim başarısı ve destek talebi
+  ölçümlerinin uçtan uca (dashboard/rapor olarak) toplanması — `onboarding_events` kaydı var
+  ama ayrı bir ölçüm raporu henüz yok.
+- Aşama 6'nın tamamı: pilot gözlemi, SMS ihtiyacı kararı, `ops/load/booking-race.js` yük
+  testinin hiç çalıştırılmamış olması (script yazılı ama sonuç kaydı yok — bir staging ortamı
+  gerektiriyor), kritik/yüksek bulguların kapatılması, kademeli açılış.
+- RPO/RTO tatbikat kaydı, canlı iyzico ödeme provası, hukuki/ticari onaylar — plan gereği
+  ayrı, kontrollü adımlar olarak kalmalı.
