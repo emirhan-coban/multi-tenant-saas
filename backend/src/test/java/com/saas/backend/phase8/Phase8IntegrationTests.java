@@ -213,7 +213,7 @@ class Phase8IntegrationTests extends PostgresTestBase {
         assertTrue(names.contains("saas.queue.pending"), names);
         assertTrue(names.contains("http.server.requests"), names);
         var depth = db.queryForList("select queue_name from ops_queue_depth()", String.class);
-        assertEquals(java.util.List.of("outbox", "push", "booking_approval"), depth);
+        assertEquals(java.util.List.of("outbox", "push", "booking_approval", "account_email"), depth);
     }
 
     private String firstSlot() throws Exception {

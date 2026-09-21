@@ -27,7 +27,10 @@ public class AccountSecurityController {
     /** Aydınlatma metninin yürürlükteki sürümü; kayıt ekranları giriş yapmadan okur. */
     @GetMapping("/api/public/kvkk/policy")
     public java.util.Map<String, String> policy() {
-        return java.util.Map.of("version", kvkk.policyVersion());
+        return java.util.Map.of(
+                "version", kvkk.policyVersion(),
+                "privacyNoticeVersion", kvkk.policyVersion(),
+                "termsVersion", kvkk.termsVersion());
     }
 
     // --------------------------------------------------------------- işletme kullanıcıları

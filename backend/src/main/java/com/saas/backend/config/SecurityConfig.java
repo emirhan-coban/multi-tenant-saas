@@ -87,6 +87,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/email/verification", "/api/auth/email/status").authenticated()
                         .requestMatchers("/api/customer/v1/auth/email/verification", "/api/customer/v1/auth/email/status").hasRole("CUSTOMER")
                         .requestMatchers("/api/auth/**", "/api/customer/v1/auth/**", "/api/public/**", "/api/health").permitAll()
+                        .requestMatchers("/api/staff/invitations/accept").permitAll()
+                        .requestMatchers("/api/public/billing/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").hasRole("OPS")
                         .requestMatchers("/api/customer/v1/**").hasRole("CUSTOMER")

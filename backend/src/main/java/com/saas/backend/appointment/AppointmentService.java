@@ -92,6 +92,9 @@ public class AppointmentService {
     public AppointmentDtos.Response patch(AuthenticatedUser user, UUID id, AppointmentDtos.Patch request) {
         context(user);
         var a=appointments.findByIdAndTenantId(id,user.tenantId()).orElseThrow(() -> missing("Randevu"));
+        requireStaffScope(user, a.getStaffId());
+        if ("STAFF".equals(user.role()) && (request.startsAt()!=null || request.notes()!=null))
+            throw new ApiException("FORBIDDEN", "Personel yalnızca kendi randevusunun durumunu güncelleyebilir");
         if (!Objects.equals(a.getVersion(),request.version()))
             throw new ApiException("STALE_VERSION","Randevu başka biri tarafından değiştirildi. Listeyi yenileyin.");
         if (a.getStatus()!=Appointment.Status.CONFIRMED)
@@ -202,8 +205,31 @@ public class AppointmentService {
         context(user);
         if (from==null || to==null || !from.isBefore(to) || Duration.between(from,to).compareTo(Duration.ofDays(93))>0)
             throw new ApiException("INVALID_RANGE","Tarih aralığı en fazla 93 gün olmalı");
-        if (staff!=null) person(user,staff);
+        if ("STAFF".equals(user.role())) staff = ownStaffId(user);
+        else if (staff!=null) person(user,staff);
         return appointments.list(user.tenantId(),staff,from,to).stream().map(this::response).toList();
+    }
+
+    @Transactional(readOnly=true)
+    public void assertCanAccess(AuthenticatedUser user, UUID appointmentId) {
+        context(user);
+        var appointment = appointments.findByIdAndTenantId(appointmentId, user.tenantId())
+                .orElseThrow(() -> missing("Randevu"));
+        requireStaffScope(user, appointment.getStaffId());
+    }
+
+    private void requireStaffScope(AuthenticatedUser user, UUID appointmentStaffId) {
+        if ("STAFF".equals(user.role()) && !ownStaffId(user).equals(appointmentStaffId))
+            throw new ApiException("FORBIDDEN", "Yalnızca kendi takviminize erişebilirsiniz");
+    }
+
+    private UUID ownStaffId(AuthenticatedUser user) {
+        return em.createQuery("""
+                select p.id from Personel p
+                where p.tenant.id=:tenant and p.user.id=:user and p.active=true
+                """, UUID.class).setParameter("tenant", user.tenantId()).setParameter("user", user.userId())
+                .getResultStream().findFirst()
+                .orElseThrow(() -> new ApiException("STAFF_PROFILE_REQUIRED", "Aktif personel profiliniz bulunamadı"));
     }
 
     @Transactional(readOnly=true)

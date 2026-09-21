@@ -23,25 +23,43 @@ public class KvkkService {
     private final JdbcTemplate db;
     private final SessionRevocationService sessions;
     private final String policyVersion;
+    private final String termsVersion;
 
     public KvkkService(JdbcTemplate db, SessionRevocationService sessions,
-                       @Value("${app.kvkk.policy-version:2026-09}") String policyVersion) {
+                       @Value("${app.kvkk.policy-version:2026-09}") String policyVersion,
+                       @Value("${app.kvkk.terms-version:2026-09}") String termsVersion) {
         this.db = db;
         this.sessions = sessions;
         this.policyVersion = policyVersion;
+        this.termsVersion = termsVersion;
     }
 
     public String policyVersion() {
         return policyVersion;
     }
 
+    public String termsVersion() {
+        return termsVersion;
+    }
+
     /** Kayıt sırasında onaylanan aydınlatma metninin sürümünü yazar. */
     @Transactional
     public void recordConsent(UUID account, boolean customer) {
+        String subjectType = customer ? "CUSTOMER" : "STAFF";
         db.update(customer
                 ? "update customer_accounts set consent_version=?, consent_at=now() where id=? and consent_at is null"
                 : "update users set consent_version=?, consent_at=now() where id=? and consent_at is null",
                 policyVersion, account);
+        db.update("insert into legal_documents(code,version,title) values ('PRIVACY_NOTICE',?,'Kişisel Verilerin Korunması Aydınlatma Metni') on conflict do nothing", policyVersion);
+        db.update("insert into legal_documents(code,version,title) values ('TERMS_OF_SERVICE',?,'Hizmet Kullanım Koşulları') on conflict do nothing", termsVersion);
+        db.update("""
+                insert into legal_acceptances(subject_type,subject_id,document_code,document_version,acceptance_type)
+                values (?,?,'PRIVACY_NOTICE',?,'ACKNOWLEDGEMENT') on conflict do nothing
+                """, subjectType, account, policyVersion);
+        db.update("""
+                insert into legal_acceptances(subject_type,subject_id,document_code,document_version,acceptance_type)
+                values (?,?,'TERMS_OF_SERVICE',?,'CONTRACT') on conflict do nothing
+                """, subjectType, account, termsVersion);
     }
 
     /** Müşterinin kendi verisinin tamamı, tek bir JSON belgesi olarak. */
@@ -56,6 +74,10 @@ public class KvkkService {
     /** Hesabı kapatır ve kişisel alanları geri döndürülemez biçimde siler. */
     @Transactional
     public void deleteCustomer(UUID account) {
+        var locked = db.queryForList("select active,anonymized_at from customer_accounts where id=? for update", account);
+        if (locked.isEmpty() || !Boolean.TRUE.equals(locked.getFirst().get("active"))
+                || locked.getFirst().get("anonymized_at") != null)
+            throw new ApiException("CUSTOMER_NOT_FOUND", "Müşteri hesabı bulunamadı");
         db.update("insert into account_deletion_tombstones(subject_type,subject_id) values ('CUSTOMER',?) on conflict do nothing", account);
         int updated = db.update("""
                 update customer_accounts set

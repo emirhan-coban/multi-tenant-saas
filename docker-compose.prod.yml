@@ -64,6 +64,13 @@ services:
       MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:?zorunlu}
       GMAIL_ADDRESS: ${GMAIL_ADDRESS:?zorunlu}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:?zorunlu}
+      APP_BILLING_CALLBACK_URL: ${APP_BILLING_CALLBACK_URL:?zorunlu}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://api.iyzipay.com}
+      IYZICO_API_KEY: ${IYZICO_API_KEY:?zorunlu}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:?zorunlu}
+      IYZICO_MERCHANT_ID: ${IYZICO_MERCHANT_ID:?zorunlu}
+      IYZICO_PLAN_REFERENCE: ${IYZICO_PLAN_REFERENCE:?zorunlu}
+      APP_SUPPORT_OWNER: ${APP_SUPPORT_OWNER:?zorunlu}
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,5 +113,44 @@ services:
       backend:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    profiles: [monitoring]
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
+    volumes:
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    secrets: [ops_metrics_token]
+    depends_on: [backend, alertmanager]
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    profiles: [monitoring]
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ./ops/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    secrets: [alert_webhook_url]
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    profiles: [monitoring]
+    command: ["--path.rootfs=/host", "--collector.textfile.directory=/textfile"]
+    volumes:
+      - /:/host:ro,rslave
+      - ./ops/monitoring/textfile:/textfile:ro
+
+secrets:
+  ops_metrics_token:
+    file: ./secrets/ops_metrics_token
+  alert_webhook_url:
+    file: ./secrets/alert_webhook_url
+
 volumes:
   pgdata:
+  prometheus_data:
+  alertmanager_data:

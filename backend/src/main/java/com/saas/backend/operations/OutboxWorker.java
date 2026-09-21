@@ -13,17 +13,19 @@ public class OutboxWorker {
         operations.context(tenant);
         MDC.put("tenantId",tenant.toString());MDC.put("traceId",UUID.randomUUID().toString());
         try {
-            var rows=db.queryForList("select * from outbox where tenant_id=? and status='PENDING' and available_at<=now() order by available_at,id limit 10 for update skip locked",tenant);
+            var rows=db.queryForList("select * from outbox where tenant_id=? and status='PENDING' and available_at<=clock_timestamp() order by available_at,id limit 10 for update skip locked",tenant);
             for(var row:rows) {
                 UUID id=(UUID)row.get("id"),recipient=(UUID)row.get("recipient_id"),appointment=(UUID)row.get("appointment_id");
                 if(row.get("event_type").toString().startsWith("CUSTOMER_")) {
-                    boolean customerActive = Boolean.TRUE.equals(db.queryForObject("""
-                        select exists(
-                          select 1 from appointments a
-                          join tenant_customers tc on tc.tenant_id=a.tenant_id and tc.id=a.customer_id
-                          join customer_accounts ca on ca.id=tc.customer_account_id
-                          where a.tenant_id=? and a.id=? and ca.active and ca.anonymized_at is null)
-                        """, Boolean.class, tenant, appointment));
+                    UUID customerId = db.queryForObject(
+                            "select customer_id from appointments where tenant_id=? and id=?",
+                            UUID.class, tenant, appointment);
+                    boolean customerActive = customerId == null || !db.queryForList("""
+                            select ca.id from tenant_customers tc
+                            join customer_accounts ca on ca.id=tc.customer_account_id
+                            where tc.tenant_id=? and tc.id=? and ca.active and ca.anonymized_at is null
+                            for share of ca
+                            """, tenant, customerId).isEmpty();
                     if (!customerActive) {
                         db.update("update outbox set status='SKIPPED' where id=? and tenant_id=?", id, tenant);
                         continue;

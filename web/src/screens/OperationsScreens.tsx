@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { api } from '../api/client';
@@ -8,6 +8,7 @@ import { Button, Card } from '../components/ui';
 import '../operations.css';
 import { NotificationPermissionCard } from '../components/NotificationPermissionCard';
 import { InstallPrompt } from '../components/InstallPrompt';
+import { Modal } from '../components/Modal';
 
 type Counter = { used: number; limit: number | null };
 type Usage = { plan: string; staff: Counter; appointments: Counter; resetsAt: string; timezone: string; requestsPerMinute: number };
@@ -36,12 +37,48 @@ export function UsageCard() {
       <Link className="text-link" to="/app/plan">Planı incele →</Link></>}
   </Card>;
 }
+type Subscription = { planCode: string; planName: string; amountMinor: number; currency: string; status: string; paidFeaturesEnabled: boolean; trialEndsAt: string | null; periodEndsAt: string | null; graceEndsAt: string | null; cancelAtPeriodEnd: boolean };
+type Checkout = { checkoutId: string; htmlContent: string; expiresAt: string };
+type Invoice = { orderReference: string; invoiceReference: string | null; amountMinor: number; currency: string; status: string; occurredAt: string };
+const subscriptionLabels: Record<string,string> = { FREE:'Ücretsiz',TRIALING:'Deneme',ACTIVE:'Aktif',PAST_DUE:'Ödeme bekleniyor',CANCEL_AT_PERIOD_END:'Dönem sonunda iptal',RESTRICTED:'Kısıtlı',CANCELLED:'İptal edildi' };
+const emptyBilling = { name:'',surname:'',email:'',gsmNumber:'',identityNumber:'',address:'',city:'',country:'Türkiye',zipCode:'' };
+function checkoutDocument(html:string) { return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`; }
 export function PlanScreen() {
-  const [demo, setDemo] = useState(false);
-  return <><div className="page-heading"><p className="eyebrow">ABONELİK</p><h1>Plan ve kullanım</h1><p>Ekibiniz büyüdükçe kapasitenizi takip edin.</p></div><UsageCard />
-    <div className="dashboard-grid operations-section"><Card><h2>FREE</h2><p>2 aktif personel · Ayda 100 randevu · Dakikada 60 istek</p></Card>
-      <Card><h2>PRO</h2><p>Sınırsız personel ve aylık randevu · Dakikada 300 istek</p><Button onClick={() => setDemo(true)}>Planı yükselt — demo</Button>
-        {demo && <p role="status" className="info-notice">Bu bir demo ekranıdır. Ödeme alınmaz ve planınız değişmez. Gerçek abonelik entegrasyonu henüz bulunmuyor.</p>}</Card></div></>;
+  const { tenantId, role } = useTenant();
+  const client = useQueryClient();
+  const subscription = useQuery({ queryKey:['tenant',tenantId,'billing'],queryFn:async()=>(await api.get<Subscription>('/api/billing/subscription')).data,refetchInterval:5000 });
+  const invoices = useQuery({ queryKey:['tenant',tenantId,'billing','invoices'],queryFn:async()=>(await api.get<Invoice[]>('/api/billing/invoices')).data });
+  const [open,setOpen]=useState(false), [checkout,setCheckout]=useState<Checkout|null>(null), [form,setForm]=useState(emptyBilling);
+  const start = useMutation({ mutationFn:async()=>(await api.post<Checkout>('/api/billing/checkout',form)).data,onSuccess:data=>setCheckout(data) });
+  const cancel = useMutation({ mutationFn:async()=>api.delete('/api/billing/subscription'),onSuccess:()=>void client.invalidateQueries({queryKey:['tenant',tenantId,'billing']}) });
+  const status=subscription.data;
+  const price=status?new Intl.NumberFormat('tr-TR',{style:'currency',currency:status.currency}).format(status.amountMinor/100):'';
+  const set=(key:keyof typeof form)=>(event:ChangeEvent<HTMLInputElement>)=>setForm(previous=>({...previous,[key]:event.target.value}));
+  return <><div className="page-heading"><p className="eyebrow">ABONELİK</p><h1>Plan ve kullanım</h1><p>Ekibiniz büyüdükçe kapasitenizi ve faturalama durumunuzu takip edin.</p></div><UsageCard />
+    {subscription.isError&&<Failure error={subscription.error}/>} {subscription.isPending&&<p role="status">Abonelik yükleniyor…</p>}
+    <div className="dashboard-grid operations-section"><Card><h2>Ücretsiz</h2><p>2 aktif personel · Ayda 100 randevu · Dakikada 60 istek</p></Card>
+      <Card><h2>Profesyonel</h2><p>Sınırsız personel ve aylık randevu · Dakikada 300 istek</p>{status&&<><p><span className="role-badge">{subscriptionLabels[status.status]??status.status}</span> · {price}/ay</p>
+        {status.trialEndsAt&&status.status==='TRIALING'&&<p className="muted">Deneme bitişi: {new Date(status.trialEndsAt).toLocaleDateString('tr-TR')}</p>}
+        {status.graceEndsAt&&status.status==='PAST_DUE'&&<p className="info-notice">Ödeme alınamadı. {new Date(status.graceEndsAt).toLocaleDateString('tr-TR')} tarihine kadar erişiminiz sürer.</p>}
+        {status.periodEndsAt&&status.cancelAtPeriodEnd&&<p className="info-notice">Abonelik {new Date(status.periodEndsAt).toLocaleDateString('tr-TR')} tarihinde sona erecek. Verileriniz korunur.</p>}
+        {role==='OWNER'&&!status.paidFeaturesEnabled&&<Button onClick={()=>setOpen(true)}>14 günlük denemeyi başlat</Button>}
+        {role==='OWNER'&&status.paidFeaturesEnabled&&!status.cancelAtPeriodEnd&&<Button variant="quiet" disabled={cancel.isPending} onClick={()=>cancel.mutate()}>Dönem sonunda iptal et</Button>}</>}
+        {cancel.isError&&<Failure error={cancel.error}/>}</Card></div>
+    <section className="operations-section"><h2>Tahsilat ve fatura kayıtları</h2>
+      {invoices.isPending&&<p role="status">Tahsilatlar yükleniyor…</p>}{invoices.isError&&<Failure error={invoices.error}/>}
+      {invoices.data&&!invoices.data.length&&<p className="muted">Henüz tahsilat kaydı yok.</p>}
+      {!!invoices.data?.length&&<div className="operations-table"><table><thead><tr><th>Tarih</th><th>Sipariş</th><th>Tutar</th><th>Durum</th><th>Fatura</th></tr></thead><tbody>{invoices.data.map(invoice=><tr key={invoice.orderReference}><td>{new Date(invoice.occurredAt).toLocaleString('tr-TR')}</td><td>{invoice.orderReference}</td><td>{new Intl.NumberFormat('tr-TR',{style:'currency',currency:invoice.currency}).format(invoice.amountMinor/100)}</td><td>{invoice.status==='PAID'?'Ödendi':'Başarısız'}</td><td>{invoice.invoiceReference??'Hazırlanıyor'}</td></tr>)}</tbody></table></div>}
+      <p className="muted">Yasal fatura referansı, günlük mutabakat sırasında sipariş kaydına bağlanır.</p>
+    </section>
+    {open&&<Modal title="Profesyonel plana geç" busy={start.isPending} onClose={()=>{setOpen(false);setCheckout(null);start.reset();}}>
+      {!checkout?<form className="billing-form" onSubmit={event=>{event.preventDefault();start.mutate();}}><p className="muted">Kart bilgilerinizi iyzico'nun güvenli ödeme ekranına gireceksiniz. Aşağıdaki bilgiler faturalama ve ödeme doğrulaması için doğrudan sağlayıcıya iletilir.</p>
+        <div className="billing-fields"><label className="field"><span>Ad</span><input required autoComplete="given-name" value={form.name} onChange={set('name')}/></label><label className="field"><span>Soyad</span><input required autoComplete="family-name" value={form.surname} onChange={set('surname')}/></label>
+          <label className="field"><span>E-posta</span><input required type="email" autoComplete="email" value={form.email} onChange={set('email')}/></label><label className="field"><span>Telefon (+90…)</span><input required inputMode="tel" autoComplete="tel" value={form.gsmNumber} onChange={set('gsmNumber')}/></label>
+          <label className="field"><span>T.C. kimlik no</span><input required inputMode="numeric" autoComplete="off" value={form.identityNumber} onChange={set('identityNumber')}/></label><label className="field"><span>Şehir</span><input required autoComplete="address-level2" value={form.city} onChange={set('city')}/></label>
+          <label className="field billing-address"><span>Fatura adresi</span><input required autoComplete="street-address" value={form.address} onChange={set('address')}/></label><label className="field"><span>Ülke</span><input required autoComplete="country-name" value={form.country} onChange={set('country')}/></label><label className="field"><span>Posta kodu</span><input autoComplete="postal-code" value={form.zipCode} onChange={set('zipCode')}/></label></div>
+        {start.isError&&<Failure error={start.error}/>}<div className="modal-actions"><Button type="button" variant="quiet" onClick={()=>setOpen(false)}>Vazgeç</Button><Button disabled={start.isPending}>{start.isPending?'Güvenli ekran hazırlanıyor…':'Ödemeye geç'}</Button></div></form>
+      :<><p className="muted">Ödeme adımını tamamladıktan sonra bu pencereyi kapatın. Abonelik durumu yalnız sunucu doğrulamasından sonra güncellenir.</p><iframe className="billing-checkout" title="iyzico güvenli ödeme" sandbox="allow-forms allow-scripts allow-top-navigation-by-user-activation" src={checkoutDocument(checkout.htmlContent)}/><div className="modal-actions"><Button onClick={()=>{setOpen(false);setCheckout(null);void subscription.refetch();}}>Durumu kontrol et</Button></div></>}
+    </Modal>}</>;
 }
 function localDate(date: Date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
 export function reportRange(from: string, through: string) {

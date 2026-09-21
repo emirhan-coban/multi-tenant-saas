@@ -2,6 +2,7 @@ package com.saas.backend.personel;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public class PersonelDtos {
@@ -14,7 +15,12 @@ public class PersonelDtos {
     public record DavetSonucu(
             UUID personelId,
             String email,
-            String geciciSifre
+            boolean invitationSent
+    ) {}
+
+    public record DavetKabulRequest(
+            @NotBlank String token,
+            @Size(min = 8, max = 72) String password
     ) {}
 
     public record PersonelResponse(

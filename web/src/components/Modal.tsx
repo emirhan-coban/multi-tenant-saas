@@ -6,9 +6,10 @@ export function Modal({ title, children, onClose, busy = false }: { title: strin
   useEffect(() => {
     const element = dialog.current!;
     const previous = document.activeElement as HTMLElement | null;
-    element.showModal();
+    if (typeof element.showModal === 'function') element.showModal();
+    else element.setAttribute('open', '');
     element.querySelector<HTMLElement>('[data-autofocus="true"]')?.focus();
-    return () => { element.close(); if (previous?.isConnected) previous.focus(); };
+    return () => { if (typeof element.close === 'function') element.close(); else element.removeAttribute('open'); if (previous?.isConnected) previous.focus(); };
   }, []);
   return <dialog ref={dialog} className="modal" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
     <div className="modal-heading"><h2 id={titleId}>{title}</h2><button type="button" className="button button-quiet" aria-label="Pencereyi kapat" disabled={busy} onClick={onClose}>×</button></div>

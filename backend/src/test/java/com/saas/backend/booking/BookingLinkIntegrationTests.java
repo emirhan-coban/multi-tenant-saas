@@ -38,6 +38,8 @@ class BookingLinkIntegrationTests extends PostgresTestBase {
         db.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", firstTenant, "Moda Berber", "moda-berber-" + firstTenant, "Istanbul");
         db.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", secondTenant, "Kadıköy Makas", "kadikoy-makas-" + secondTenant, "Europe/Istanbul");
         db.update("insert into users(id,email,password_hash,full_name) values (?,?,?,?)", user, user + "@example.test", "unused", "Test User");
+        db.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')", user, firstTenant);
+        db.update("insert into memberships(user_id,tenant_id,role) values (?,?,'STAFF')", user, secondTenant);
     }
 
     @Test

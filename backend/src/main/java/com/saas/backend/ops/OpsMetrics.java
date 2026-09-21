@@ -71,6 +71,24 @@ public class OpsMetrics {
         counter("saas.booking.stage_reached", "stage", stage, "view", view).increment();
     }
 
+    public void bookingApprovalLatency(String outcome, long seconds) {
+        io.micrometer.core.instrument.DistributionSummary.builder("saas.booking.approval_seconds")
+                .tag("outcome", outcome)
+                .baseUnit("seconds")
+                .publishPercentiles(0.5, 0.75, 0.95)
+                .register(registry).record(Math.max(0, seconds));
+    }
+
+    public void onboardingCompleted(long seconds) {
+        io.micrometer.core.instrument.DistributionSummary.builder("saas.onboarding.completion_seconds")
+                .baseUnit("seconds").publishPercentiles(0.5, 0.75, 0.95)
+                .register(registry).record(Math.max(0, seconds));
+    }
+
+    public void supportRequest(String category) {
+        counter("saas.support.requests", "category", category).increment();
+    }
+
     private Counter counter(String name, String... tags) {
         return Counter.builder(name).tags(tags).register(registry);
     }

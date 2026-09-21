@@ -42,6 +42,7 @@ class OperationsIntegrationTests extends PostgresTestBase {
         tenant=UUID.randomUUID();user=UUID.randomUUID();staff=UUID.randomUUID();service=UUID.randomUUID();
         db.update("insert into tenants(id,name,slug,timezone) values (?,?,?,'Europe/Istanbul')",tenant,"Phase4",tenant.toString());
         db.update("insert into users(id,email,password_hash,full_name) values (?,?,?,?)",user,user+"@example.test","unused","Tester");
+        db.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')",user,tenant);
         db.update("insert into staff(id,tenant_id,user_id,display_name) values (?,?,?,?)",staff,tenant,user,"Tester");
         db.update("insert into services(id,tenant_id,name,duration_min,buffer_min,price) values (?,?,?,30,10,120)",service,tenant,"Service");
         db.update("insert into working_hours(tenant_id,staff_id,day_of_week,start_time,end_time) values (?,?,0,'09:00','18:00')",tenant,staff);

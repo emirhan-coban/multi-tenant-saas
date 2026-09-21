@@ -78,6 +78,10 @@ export function BookingScreen() {
     getPublicShop(tenantSlug).then(data => {
       if (!active) return;
       setShop(data);
+      if (data.staff.length > 3) {
+        setView('list');
+        setNotice('Bu işletmede tüm çalışanlar liste görünümünde gösteriliyor.');
+      }
       setStaffId(current => current || data.staff[0]?.id || '');
       setServiceId(current => current || data.services[0]?.id || '');
     }).catch(reason => active && setError(errorMessage(reason, 'İşletme bilgileri yüklenemedi.')))
@@ -425,8 +429,8 @@ export function BookingScreen() {
       <span>Randevu al</span>
     </div>
     <nav className="bk-view-tabs" aria-label="Berber seçim görünümü">
-      <button type="button" className={view === '3d' ? 'is-active' : ''} disabled={!manifest} aria-pressed={view === '3d'}
-        title={threeDOff ? '3D görünüm şu anda kapalı' : undefined} onClick={() => setView('3d')}>
+      <button type="button" className={view === '3d' ? 'is-active' : ''} disabled={!manifest || shop.staff.length > 3} aria-pressed={view === '3d'}
+        title={threeDOff ? '3D görünüm şu anda kapalı' : shop.staff.length > 3 ? 'Tüm çalışanları görmek için liste görünümü kullanılır' : undefined} onClick={() => setView('3d')}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4z M4 7.4l8 4.6 8-4.6 M12 12v9.2" /></svg>3D görünüm
       </button>
       <button type="button" className={view === 'list' ? 'is-active' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}>

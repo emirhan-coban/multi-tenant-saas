@@ -34,6 +34,7 @@ class AuthTokenIntegrationTests extends PostgresTestBase {
         tenantId = UUID.randomUUID();
         jdbc.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", tenantId, "Auth QA", tenantId.toString(), "Europe/Istanbul");
         jdbc.update("insert into users(id,email,password_hash,full_name) values (?,?,?,?)", userId, userId + "@example.test", "unused", "Auth QA");
+        jdbc.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')", userId, tenantId);
     }
 
     @Test

@@ -40,3 +40,27 @@ groups:
           severity: warning
         annotations:
           summary: "Push delivery queue is large"
+
+      - alert: SaasBackupMissing
+        expr: time() - saas_backup_last_success_timestamp_seconds > 90000
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No successful encrypted backup in the last 25 hours"
+
+      - alert: SaasDiskSpaceLow
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} < 0.15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host filesystem has less than 15% free space"
+
+      - alert: SaasTargetDown
+        expr: up{job="saas-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SaaS backend metrics target is down"

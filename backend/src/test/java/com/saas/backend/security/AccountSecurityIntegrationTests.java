@@ -156,6 +156,19 @@ class AccountSecurityIntegrationTests extends PostgresTestBase {
     void registrationRecordsConsentAndCustomerCanExportThenDeleteTheirData() {
         assertNotNull(owner.queryForObject("select consent_version from customer_accounts where id=?",
                 String.class, customerId), "Kayıt sırasında açık rıza sürümü işlenmeli");
+        assertEquals(1L, owner.queryForObject("""
+                select count(*) from legal_acceptances
+                where subject_type='CUSTOMER' and subject_id=? and document_code='PRIVACY_NOTICE'
+                  and acceptance_type='ACKNOWLEDGEMENT'
+                """, Long.class, customerId));
+        assertEquals(1L, owner.queryForObject("""
+                select count(*) from legal_acceptances
+                where subject_type='CUSTOMER' and subject_id=? and document_code='TERMS_OF_SERVICE'
+                  and acceptance_type='CONTRACT'
+                """, Long.class, customerId));
+        assertEquals(0L, owner.queryForObject(
+                "select count(*) from purpose_consents where subject_type='CUSTOMER' and subject_id=?",
+                Long.class, customerId), "İsteğe bağlı izin kayıt sırasında varsayılmamalı");
 
         String accessToken = field(login(customerEmail, "Baslangic1"), "accessToken");
         var export = get("/api/customer/v1/account/export", accessToken);
@@ -184,6 +197,8 @@ class AccountSecurityIntegrationTests extends PostgresTestBase {
         var response = get("/api/public/kvkk/policy", null);
         assertEquals(200, response.statusCode(), response.body());
         assertTrue(response.body().contains("version"), response.body());
+        assertTrue(response.body().contains("privacyNoticeVersion"), response.body());
+        assertTrue(response.body().contains("termsVersion"), response.body());
     }
 
     // ------------------------------------------------------------------ yardımcılar

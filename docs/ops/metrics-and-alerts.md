@@ -4,6 +4,11 @@
 `Authorization: Bearer $APP_OPS_METRICS_TOKEN` ile çalışır. `GET /actuator/health` açıktır ve ayrıntı döndürmez.
 Etiketlerde tenant, kullanıcı, e-posta, uç nokta gibi yüksek kardinaliteli/kişisel değerler yoktur.
 
+Kurulum tamamlanma süresi `saas.onboarding.completion_seconds`, rezervasyon talebi karar süresi
+`saas.booking.approval_seconds`, destek talebi adedi ise yalnız sabit kategori etiketiyle
+`saas.support.requests` metriğinde izlenir. Rezervasyon dönüşümü ve mobil performans
+`saas.booking.stage_reached` ile `saas.booking.vitals` üzerinden ölçülür.
+
 | Metrik | Tür | Etiketler | Anlamı |
 |---|---|---|---|
 | `http.server.requests` | timer (histogram, SLO 100ms/300ms/1s/3s) | method, uri, status, outcome | Gecikme ve hata oranı |
@@ -33,5 +38,6 @@ Etiketlerde tenant, kullanıcı, e-posta, uç nokta gibi yüksek kardinaliteli/k
 | Hesap e-postası | `pending{queue=account_email}` > 20 veya yaş > 120 s | SMTP ayarı, şifreleme anahtarı ve dispatcher |
 | Saklama işi | 26 saattir yeni `data_retention_runs` satırı yok | Scheduler/ShedLock kilidi |
 
-Prometheus kullanılacaksa `io.micrometer:micrometer-registry-prometheus` bağımlılığı eklenip
-`management.endpoints.web.exposure.include` içine `prometheus` yazılır; aynı token koruması geçerlidir.
+Prometheus kayıtçısı ve `/actuator/prometheus` uç noktası uygulamada etkindir. Üretim compose
+dosyası Prometheus, Alertmanager ve node-exporter servislerini `monitoring` profiliyle açar;
+aynı operasyon token koruması metrik uç noktasında geçerlidir.

@@ -62,6 +62,18 @@ server:
   forward-headers-strategy: framework
 
 app:
+  support:
+    owner: ${APP_SUPPORT_OWNER:operations}
+  billing:
+    callback-url: ${APP_BILLING_CALLBACK_URL:http://localhost:8080/api/public/billing/iyzico/callback}
+    maintenance-delay-ms: ${APP_BILLING_MAINTENANCE_DELAY_MS:3600000}
+    maintenance-initial-delay-ms: ${APP_BILLING_MAINTENANCE_INITIAL_DELAY_MS:60000}
+    iyzico:
+      base-url: ${IYZICO_BASE_URL:https://sandbox-api.iyzipay.com}
+      api-key: ${IYZICO_API_KEY:}
+      secret-key: ${IYZICO_SECRET_KEY:}
+      merchant-id: ${IYZICO_MERCHANT_ID:}
+      plan-reference: ${IYZICO_PLAN_REFERENCE:}
   jwt:
     # Üretimde APP_JWT_SECRET zorunlu; aşağıdaki değer yalnızca yerel geliştirme içindir
     # ve SecurityStartupCheck tarafından üretimde reddedilir.
@@ -91,6 +103,7 @@ app:
   account:
     password-reset-minutes: 60
     email-verify-hours: 48
+    staff-invite-hours: 48
     # Üretimde ayrı 32 bayt Base64 anahtar zorunludur; geliştirmede JWT anahtarından türetilir.
     mail-key: ${APP_ACCOUNT_MAIL_KEY:}
     mail-interval-ms: 15000
@@ -101,6 +114,7 @@ app:
   kvkk:
     # Aydınlatma metninin yürürlükteki sürümü; kayıtta bu değer saklanır.
     policy-version: ${APP_KVKK_POLICY_VERSION:2026-09}
+    terms-version: ${APP_TERMS_VERSION:2026-09}
 
   ops:
     metrics-token: ${APP_OPS_METRICS_TOKEN:}

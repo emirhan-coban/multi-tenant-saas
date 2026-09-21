@@ -32,28 +32,36 @@ public class AccountTokenService {
     private final SecureRandom random = new SecureRandom();
     private final Duration passwordResetTtl;
     private final Duration emailVerifyTtl;
+    private final Duration staffInviteTtl;
     private final int hourlyLimit;
 
     public AccountTokenService(JdbcTemplate db,
                                @Value("${app.account.password-reset-minutes:60}") long passwordResetMinutes,
                                @Value("${app.account.email-verify-hours:48}") long emailVerifyHours,
+                               @Value("${app.account.staff-invite-hours:48}") long staffInviteHours,
                                @Value("${app.account.hourly-request-limit:5}") int hourlyLimit) {
         this.db = db;
         this.passwordResetTtl = Duration.ofMinutes(passwordResetMinutes);
         this.emailVerifyTtl = Duration.ofHours(emailVerifyHours);
+        this.staffInviteTtl = Duration.ofHours(staffInviteHours);
         this.hourlyLimit = hourlyLimit;
     }
 
     public enum Purpose {
-        PASSWORD_RESET, EMAIL_VERIFY;
+        PASSWORD_RESET, EMAIL_VERIFY, STAFF_INVITE;
 
         public String subjectLine() {
-            return this == PASSWORD_RESET ? "Şifre sıfırlama" : "E-posta doğrulama";
+            return switch (this) {
+                case PASSWORD_RESET -> "Şifre sıfırlama";
+                case EMAIL_VERIFY -> "E-posta doğrulama";
+                case STAFF_INVITE -> "Personel daveti";
+            };
         }
     }
 
     public record Subject(String type, UUID id) {
         public static Subject staff(UUID id) { return new Subject("STAFF", id); }
+        public static Subject staffInvitation(UUID id) { return new Subject("STAFF_INVITATION", id); }
         public static Subject customer(UUID id) { return new Subject("CUSTOMER", id); }
     }
 
@@ -68,7 +76,12 @@ public class AccountTokenService {
         byte[] raw = new byte[TOKEN_BYTES];
         random.nextBytes(raw);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
-        Instant expires = Instant.now().plus(purpose == Purpose.PASSWORD_RESET ? passwordResetTtl : emailVerifyTtl);
+        Duration ttl = switch (purpose) {
+            case PASSWORD_RESET -> passwordResetTtl;
+            case EMAIL_VERIFY -> emailVerifyTtl;
+            case STAFF_INVITE -> staffInviteTtl;
+        };
+        Instant expires = Instant.now().plus(ttl);
         db.update("insert into account_tokens(subject_type,subject_id,purpose,token_hash,expires_at) values (?,?,?,?,?)",
                 subject.type(), subject.id(), purpose.name(), hash(token), Timestamp.from(expires));
         return token;
@@ -140,7 +153,7 @@ public class AccountTokenService {
         return new ApiException("INVALID_ACCOUNT_TOKEN", "Bağlantı geçersiz veya süresi dolmuş. Yeniden isteyin.");
     }
 
-    static String hash(String token) {
+    public static String hash(String token) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
         } catch (java.security.NoSuchAlgorithmException ex) {

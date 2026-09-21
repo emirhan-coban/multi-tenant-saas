@@ -95,7 +95,7 @@ class CustomerFoundationIntegrationTests extends PostgresTestBase {
         assertError(get("/api/customer/v1/me", customerRefresh), 401, "UNAUTHORIZED");
         assertError(get("/api/me", customerAccess), 401, "UNAUTHORIZED");
         String staffAccess = jwt.generateAccessToken(UUID.randomUUID(), staffTenant, "OWNER");
-        assertError(get("/api/customer/v1/me", staffAccess), 403, "FORBIDDEN");
+        assertError(get("/api/customer/v1/me", staffAccess), 401, "UNAUTHORIZED");
         assertError(post("/api/customer/v1/auth/refresh",
                 "{\"refreshToken\":\"" + customerAccess + "\"}", null),
                 401, "INVALID_CUSTOMER_REFRESH_TOKEN");

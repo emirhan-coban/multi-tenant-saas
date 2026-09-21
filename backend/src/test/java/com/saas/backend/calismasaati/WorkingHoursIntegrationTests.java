@@ -51,6 +51,7 @@ class WorkingHoursIntegrationTests extends com.saas.backend.PostgresTestBase {
         personId = UUID.randomUUID();
         jdbc.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", tenant, "Hours QA", tenant.toString(), "Europe/Istanbul");
         jdbc.update("insert into users(id,email,password_hash,full_name) values (?,?,?,?)", user, user + "@example.test", "unused", "QA");
+        jdbc.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')", user, tenant);
         jdbc.update("insert into staff(id,tenant_id,user_id,display_name) values (?,?,?,?)", personId, tenant, user, "QA Staff");
         owner = new AuthenticatedUser(user, tenant, "OWNER");
     }

@@ -32,6 +32,7 @@ public class PersonelController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','STAFF')")
     public List<PersonelDtos.PersonelResponse> listele() {
         return personelService.listele();
     }
@@ -41,6 +42,12 @@ public class PersonelController {
     public ResponseEntity<Void> erisimiKaldir(@AuthenticationPrincipal AuthenticatedUser user,
                                                @PathVariable UUID personelId) {
         personelService.erisimiKaldir(user, personelId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/invitations/accept")
+    public ResponseEntity<Void> davetiKabulEt(@Valid @RequestBody PersonelDtos.DavetKabulRequest request) {
+        personelService.davetiKabulEt(request);
         return ResponseEntity.noContent().build();
     }
 }

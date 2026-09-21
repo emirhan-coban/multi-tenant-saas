@@ -15,6 +15,8 @@ geçmez. Sentetik veriyle doğrulanır ve migration değiştikçe güncellenir.
 | `account_tokens`, `account_email_outbox` | reset/doğrulama token ilişkisi ve şifreli mesaj | Token ve bağlı mesaj kuyruğu silinir |
 | `audit_log` | aktör, tenant, işlem kanıtı | Değiştirilemez; kişisel payload eklenmemesi zorunludur |
 | `kvkk_requests` | subject UUID, işlem zamanı/sonucu | Silme/export kanıtı olarak korunur |
+| `support_requests` | personel aktörü, konu ve serbest metin açıklama | İşletme destek kaydıdır; saklama süresi ve silme talebi uzman değerlendirmesiyle kesinleşir |
+| `billing_*`, `tenant_subscriptions` | sağlayıcı abonelik/fatura referansları; kart verisi yok | Ticari/muhasebe kaydı olarak saklanır; tenant RLS ile ayrılır |
 | yedekler | tüm veritabanı snapshot'ı | Şifreli saklama politikasına tabi; restore sonrası tombstone ledger replay edilir |
 
 Silme transaction'ı önce hesabı pasifleştirir, sonra kuyruk alanlarını temizler ve

@@ -4,9 +4,17 @@ global:
 rule_files:
   - /etc/prometheus/alerts.yml
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [alertmanager:9093]
+
 scrape_configs:
   - job_name: saas-backend
     metrics_path: /actuator/prometheus
     bearer_token_file: /run/secrets/ops_metrics_token
     static_configs:
       - targets: [backend:8080]
+  - job_name: node
+    static_configs:
+      - targets: [node-exporter:9100]

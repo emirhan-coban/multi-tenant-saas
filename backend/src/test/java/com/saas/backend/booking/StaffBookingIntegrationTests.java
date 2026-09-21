@@ -41,6 +41,7 @@ class StaffBookingIntegrationTests extends PostgresTestBase {
         start = Instant.now().plus(Duration.ofDays(2)).truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
         db.update("insert into tenants(id,name,slug,timezone,plan) values (?,?,?,?,?)", tenant, "Approval Shop", "approval-" + tenant, "Europe/Istanbul", "PRO");
         db.update("insert into users(id,email,password_hash,full_name) values (?,?,?,?)", owner, owner + "@example.test", "hash", "Owner User");
+        db.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')", owner, tenant);
         db.update("insert into staff(id,tenant_id,user_id,display_name) values (?,?,?,?)", staff, tenant, owner, "Deniz Usta");
         db.update("insert into services(id,tenant_id,name,duration_min,buffer_min,price) values (?,?,?,?,?,?)", service, tenant, "Saç Kesimi", 30, 10, 450);
         db.update("insert into customer_accounts(id,email,password_hash,full_name,phone) values (?,?,?,?,?)", account, account + "@example.test", "hash", "Ada Müşteri", "+90 555 000 00 00");
@@ -62,6 +63,7 @@ class StaffBookingIntegrationTests extends PostgresTestBase {
 
         UUID other = UUID.randomUUID();
         db.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", other, "Other", "other-" + other, "Europe/Istanbul");
+        db.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')", owner, other);
         var foreign = get("/api/booking-requests", jwt.generateAccessToken(owner, other, "OWNER"));
         assertEquals(200, foreign.statusCode());
         assertEquals(0, json.readTree(foreign.body()).size());
@@ -223,6 +225,7 @@ class StaffBookingIntegrationTests extends PostgresTestBase {
 
         UUID otherTenant = UUID.randomUUID();
         db.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", otherTenant, "Diger", "diger-" + otherTenant, "Europe/Istanbul");
+        db.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')", owner, otherTenant);
         assertError(post("/api/appointments/" + appointmentId + "/visit-verification",
                 "{\"code\":\"" + code + "\"}", jwt.generateAccessToken(owner, otherTenant, "OWNER"), UUID.randomUUID().toString()), 404, "NOT_FOUND");
     }

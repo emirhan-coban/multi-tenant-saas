@@ -89,6 +89,7 @@ public class StaffBookingService {
         notifications.notifyCustomer(user.tenantId(), tenantCustomer.getCustomerAccountId(), "BOOKING_REQUEST_APPROVED",
                 "Randevun onaylandı", service.getName() + " · " + BookingService.notificationTime(booking.getStartsAt(), zone),
                 "booking_request", booking.getId());
+        metrics.bookingApprovalLatency("approved", Duration.between(booking.getCreatedAt(),Instant.now()).toSeconds());
         return response(row(user.tenantId(), requestId));
     }
 
@@ -111,6 +112,7 @@ public class StaffBookingService {
         if (rejectedCustomer != null)
             notifications.notifyCustomer(user.tenantId(), rejectedCustomer.getCustomerAccountId(), "BOOKING_REQUEST_REJECTED",
                     "Talebin onaylanmadı", "Başka bir saat seçerek yeniden talep oluşturabilirsin.", "booking_request", booking.getId());
+        metrics.bookingApprovalLatency("rejected", Duration.between(booking.getCreatedAt(),Instant.now()).toSeconds());
         return response(row(user.tenantId(), requestId));
     }
 
@@ -273,7 +275,7 @@ public class StaffBookingService {
     }
 
     private CustomerAccount customerAccount(UUID id) {
-        var account = em.find(CustomerAccount.class, id);
+        var account = em.find(CustomerAccount.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_READ);
         if (account == null || !account.isActive()) throw missing("Müşteri");
         return account;
     }

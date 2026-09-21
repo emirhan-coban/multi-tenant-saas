@@ -27,6 +27,7 @@ export function PrivacyScreen() {
       <li><strong>Hesap bilgileri:</strong> ad soyad, e-posta adresi, telefon numarası ve şifrenizin geri döndürülemez özeti.</li>
       <li><strong>Randevu bilgileri:</strong> hangi işletmeden, hangi personelden, hangi hizmeti, ne zaman aldığınız ve randevunun sonucu.</li>
       <li><strong>Teknik kayıtlar:</strong> güvenlik ve kötüye kullanım denetimi için istek zamanı, hata kayıtları ve bildirim aboneliğiniz.</li>
+      <li><strong>Ödeme ve destek:</strong> abonelik/fatura referansları ile destek talebinizin konusu ve açıklaması. Kart bilgileri platformda tutulmaz.</li>
     </ul>
 
     <h2>Neden işliyoruz?</h2>
@@ -40,7 +41,8 @@ export function PrivacyScreen() {
     <p>
       Randevu aldığınız işletme, yalnızca kendi randevularınıza ait bilgileri görür. Başka bir işletme
       verilerinize erişemez; bu ayrım veritabanı düzeyinde satır bazlı güvenlik ile zorunlu kılınmıştır.
-      Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz veya aktarılmaz.
+      Abonelik başlatırsanız kimlik, iletişim, fatura adresi ve kart bilgileri ödeme işlemi için iyzico'nun
+      güvenli ekranına iletilir; platform kart numaranızı saklamaz. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz.
     </p>
 
     <h2>Ne kadar süreyle saklıyoruz?</h2>

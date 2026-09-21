@@ -108,7 +108,7 @@ public class BookingService {
         }
 
         rateLimiter.check(tenant.id(), http.getRemoteAddr());
-        var customer = activeCustomer(accountId);
+        var customer = lockActiveCustomer(accountId);
         var tenantCustomer = tenantCustomer(tenant.id(), accountId);
         lockCustomer(tenantCustomer);
         if (tenantCustomer.getTrustState() == CustomerTrustState.BLOCKED) {
@@ -329,6 +329,12 @@ public class BookingService {
 
     private CustomerAccount activeCustomer(UUID id) {
         return customers.findById(id).filter(CustomerAccount::isActive).orElseThrow(() -> missing("Müşteri"));
+    }
+
+    private CustomerAccount lockActiveCustomer(UUID id) {
+        var account = em.find(CustomerAccount.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_READ);
+        if (account == null || !account.isActive()) throw missing("Müşteri");
+        return account;
     }
 
     private TenantCustomer trust(UUID id) {

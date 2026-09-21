@@ -7,7 +7,7 @@ export type ServiceInput = { name: string; durationMin: number; price: number; b
 export type Service = ServiceInput & { id: string; bufferMin: number };
 export type Staff = { id: string; displayName: string; active: boolean };
 export type InviteInput = { email: string; displayName: string };
-export type InviteResult = { personelId: string; email: string; geciciSifre: string | null };
+export type InviteResult = { personelId: string; email: string; invitationSent: boolean };
 export type WorkingHours = {
   id: string;
   personelId: string;

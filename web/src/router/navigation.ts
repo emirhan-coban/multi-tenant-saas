@@ -7,6 +7,7 @@ export const roleLabels: Record<Role, string> = { OWNER: 'İşletme sahibi', MAN
 
 export const navigation = [
   { path: '/app', label: 'Genel Bakış', roles: memberRoles, mark: '01' },
+  { path: '/app/my-schedule', label: 'Programım', roles: memberRoles, mark: '17' },
   { path: '/app/booking-link', label: 'Rezervasyon Bağlantım', roles: memberRoles, mark: '12' },
   { path: '/app/services', label: 'Hizmetler', roles: managementRoles, mark: '02' },
   { path: '/app/staff', label: 'Personel', roles: managementRoles, mark: '03' },
@@ -21,6 +22,8 @@ export const navigation = [
   { path: '/app/audit-log', label: 'İşlem Geçmişi', roles: managementRoles, mark: '08' },
   { path: '/app/plan', label: 'Plan ve Kullanım', roles: managementRoles, mark: '09' },
   { path: '/app/notifications', label: 'Bildirimler', roles: memberRoles, mark: '10' },
+  { path: '/app/support', label: 'Destek', roles: memberRoles, mark: '19' },
+  { path: '/app/onboarding', label: 'Kurulum', roles: managementRoles, mark: '18' },
   { path: '/app/feature-flags', label: 'Özellik Anahtarları', roles: ownerRoles, mark: '16' },
 ] as const;
 

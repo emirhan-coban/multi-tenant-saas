@@ -559,3 +559,29 @@ a:focus-visible, button:focus-visible { outline: 3px solid #658031; outline-offs
   .flag-row { grid-template-columns: minmax(0, 1fr); }
   .flag-row-actions { flex-direction: row; flex-wrap: wrap; }
 }
+
+.onboarding-progress { display: grid; gap: .75rem; margin-bottom: 1.25rem; }
+.onboarding-progress progress { width: 100%; accent-color: var(--green, #287a54); }
+.onboarding-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .65rem; }
+.onboarding-list li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: .75rem; padding: .85rem; border: 1px solid var(--line, #e3e6e4); border-radius: 10px; }
+.onboarding-list li.is-complete { opacity: .72; }
+.schedule-list { display: grid; gap: .75rem; }
+@media (max-width: 640px) { .onboarding-list li { grid-template-columns: 2rem 1fr; } .onboarding-list a { grid-column: 2; } }
+.billing-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+.billing-address { grid-column:1/-1; }
+.billing-checkout { width:min(680px,78vw); min-height:560px; border:0; background:#fff; border-radius:12px; }
+@media (max-width:640px) { .billing-fields { grid-template-columns:1fr; } .billing-address { grid-column:auto; } .billing-checkout { width:82vw; min-height:620px; } }
+.support-ticket-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.sales-page,.demo-page { max-width:1120px; margin:0 auto; padding:1.25rem; }
+.sales-nav { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+.sales-nav nav { display:flex; flex-wrap:wrap; gap:1rem; }
+.sales-hero { padding:clamp(3rem,9vw,8rem) 0; max-width:760px; }
+.sales-hero h1 { font-size:clamp(2.4rem,7vw,5.2rem); line-height:1; margin:.5rem 0 1.2rem; }
+.sales-hero>p:not(.eyebrow) { font-size:1.2rem; line-height:1.6; }
+.sales-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
+.sales-price { margin:4rem 0; padding:2rem; border-radius:18px; background:var(--surface,#fff); }
+.sales-page footer { display:flex; justify-content:space-between; gap:1rem; border-top:1px solid var(--line,#ddd); padding:2rem 0; }
+.demo-page { max-width:760px; padding-top:4rem; }
+.demo-page .sales-grid button { min-height:120px; display:grid; place-content:center; gap:.4rem; border:1px solid var(--line,#ddd); border-radius:14px; background:var(--surface,#fff); font:inherit; cursor:pointer; }
+.demo-slots { display:flex; flex-wrap:wrap; gap:.75rem; margin:1rem 0; }.demo-slots button { padding:.8rem 1.2rem; }
+@media(max-width:700px){.sales-grid{grid-template-columns:1fr}.sales-nav{align-items:flex-start}.sales-page footer{flex-direction:column}}

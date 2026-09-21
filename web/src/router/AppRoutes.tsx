@@ -27,6 +27,11 @@ import { ShopDesignScreen } from '../screens/ShopDesignScreen';
 import { FeatureFlagScreen } from '../screens/FeatureFlagScreen';
 import { ForgotPasswordScreen, ResetPasswordScreen, VerifyEmailScreen } from '../screens/AccountRecoveryScreens';
 import { PrivacyScreen } from '../screens/PrivacyScreen';
+import { StaffInvitationScreen } from '../screens/StaffInvitationScreen';
+import { MyScheduleScreen } from '../screens/MyScheduleScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { SupportScreen } from '../screens/SupportScreen';
+import { DemoBookingScreen, SalesScreen } from '../screens/SalesScreen';
 
 const BookingScreen = lazy(() => import('../screens/BookingScreen').then(module => ({ default: module.BookingScreen })));
 
@@ -98,12 +103,15 @@ export function AppRoutes() {
   return <Routes>
     <Route path="/" element={<Navigate to="/app" replace />} />
     <Route path="/login" element={<LoginRoute />} />
+    <Route path="/tanitim" element={<SalesScreen />} />
+    <Route path="/demo" element={<DemoBookingScreen />} />
     <Route path="/customer/login" element={<CustomerLoginRoute />} />
     {/* Faz 9: e-postadaki bağlantılar bu adreslere gelir. */}
     <Route path="/kvkk" element={<PrivacyScreen />} />
     <Route path="/sifremi-unuttum" element={<ForgotPasswordScreen />} />
     <Route path="/sifre-sifirla" element={<ResetPasswordScreen />} />
     <Route path="/eposta-dogrula" element={<VerifyEmailScreen />} />
+    <Route path="/personel-daveti" element={<StaffInvitationScreen />} />
     <Route path="/musteri/sifremi-unuttum" element={<ForgotPasswordScreen customer />} />
     <Route path="/musteri/sifre-sifirla" element={<ResetPasswordScreen customer />} />
     <Route path="/musteri/eposta-dogrula" element={<VerifyEmailScreen customer />} />
@@ -119,6 +127,8 @@ export function AppRoutes() {
           <Route path="booking-link" element={<BookingLinkScreen />} />
           <Route path="account" element={<AccountScreen />} />
           <Route path="notifications" element={<NotificationsScreen />} />
+          <Route path="my-schedule" element={<MyScheduleScreen />} />
+          <Route path="support" element={<SupportScreen />} />
           <Route element={<RequireRole allowed={managementRoles} />}>
             <Route path="services" element={<ServicesScreen />} />
             <Route path="staff" element={<StaffScreen />} />
@@ -130,6 +140,7 @@ export function AppRoutes() {
             <Route path="customers" element={<CustomersScreen />} />
             <Route path="reports" element={<ReportsScreen />} />
             <Route path="audit-log" element={<AuditScreen />} />
+            <Route path="onboarding" element={<OnboardingScreen />} />
             <Route path="plan" element={<PlanScreen />} />
           </Route>
           <Route element={<RequireRole allowed={ownerRoles} />}>

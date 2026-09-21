@@ -7,7 +7,7 @@ import { UsageCard, PlanScreen, ReportsScreen, AuditScreen, NotificationsScreen,
 import { api } from '../src/api/client';
 import { errorMessage } from '../src/api/errors';
 import type { ReactNode } from 'react';
-vi.mock('../src/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('../src/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() } }));
 const usage = { plan: 'FREE', staff: { used: 2, limit: 2 }, appointments: { used: 95, limit: 100 }, resetsAt: '2030-02-01T00:00:00Z', timezone: 'Europe/Istanbul', requestsPerMinute: 60 };
 function mount(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -25,10 +25,15 @@ test('pro displays unlimited without an invalid progress bar', async () => {
   vi.mocked(api.get).mockResolvedValue({ data: { ...usage, plan: 'PRO', staff: { used: 6, limit: null }, appointments: { used: 800, limit: null } } });
   mount(<UsageCard />); await screen.findByText('6 / Sınırsız'); expect(screen.queryByRole('progressbar')).toBeNull();
 });
-test('upgrade demo does not mutate subscription or charge', async () => {
-  vi.mocked(api.get).mockResolvedValue({ data: usage }); mount(<PlanScreen />);
-  fireEvent.click(screen.getByRole('button', { name: 'Planı yükselt — demo' }));
-  expect(screen.getByText(/Ödeme alınmaz/)).toBeTruthy(); expect(api.patch).not.toHaveBeenCalled();
+test('upgrade opens provider checkout form without treating the browser as payment proof', async () => {
+  vi.mocked(api.get).mockImplementation(async path => ({ data:path==='/api/billing/subscription'
+    ? {planCode:'PRO_MONTHLY',planName:'Profesyonel',amountMinor:49900,currency:'TRY',status:'FREE',paidFeaturesEnabled:false,trialEndsAt:null,periodEndsAt:null,graceEndsAt:null,cancelAtPeriodEnd:false}
+    : usage }));
+  mount(<PlanScreen />);
+  fireEvent.click(await screen.findByRole('button', { name: '14 günlük denemeyi başlat' }));
+  expect(screen.getByRole('heading',{name:'Profesyonel plana geç'})).toBeTruthy();
+  expect(screen.getByText(/doğrudan sağlayıcıya iletilir/)).toBeTruthy();
+  expect(api.post).not.toHaveBeenCalled();
 });
 test('reports show revenue, chart values and unknown historical prices', async () => {
   vi.mocked(api.get).mockImplementation(async path => ({ data: path.endsWith('summary')

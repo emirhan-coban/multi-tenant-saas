@@ -9,8 +9,7 @@ import * as api from '../src/api/management';
 import type { InviteResult, Staff } from '../src/api/types';
 vi.mock('../src/api/management', () => ({ getStaff: vi.fn(), inviteStaff: vi.fn() }));
 const person = { id: 'one', displayName: 'Deniz Yılmaz', active: true };
-const result: InviteResult = { personelId: 'one', email: 'deniz@example.com', geciciSifre: 'temporary-secret' };
-const copy = vi.fn();
+const result: InviteResult = { personelId: 'one', email: 'deniz@example.com', invitationSent: true };
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: Error) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 function setup() {
   const client = createQueryClient(); client.setDefaultOptions({ queries: { retry: false } });
@@ -26,25 +25,21 @@ function fill() {
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
-  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: copy } });
 });
 beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); sessionStorage.clear(); vi.mocked(api.getStaff).mockResolvedValue([]); });
 afterEach(cleanup);
 
-test('new staff refreshes list; password copies and is never retained in query/mutation cache or storage', async () => {
-  vi.mocked(api.inviteStaff).mockResolvedValue(result); copy.mockResolvedValue(undefined);
+test('new staff refreshes list and exposes no credential in cache or storage', async () => {
+  vi.mocked(api.inviteStaff).mockResolvedValue(result);
   const { client } = setup(); await screen.findByText('Henüz personel eklemediniz');
   fill(); vi.mocked(api.getStaff).mockResolvedValue([person]);
   fireEvent.click(screen.getByRole('button', { name: 'Personel oluştur' }));
-  await screen.findByRole('heading', { name: 'Personel oluşturuldu' });
+  await screen.findByRole('heading', { name: 'Davet gönderildi' });
   await screen.findByText('Deniz Yılmaz');
-  expect((screen.getByLabelText('Geçici şifre') as HTMLInputElement).value).toBe(result.geciciSifre);
+  expect(screen.getByText('Tek kullanımlık davet bağlantısı personelin e-posta adresine gönderildi.')).toBeTruthy();
   expect(api.inviteStaff).toHaveBeenCalledWith({ displayName: 'Deniz Yılmaz', email: 'deniz@example.com' });
-  fireEvent.click(screen.getByRole('button', { name: 'Şifreyi kopyala' }));
-  await screen.findByText('Şifre kopyalandı.');
-  expect(copy).toHaveBeenCalledWith('temporary-secret');
-  expect(JSON.stringify(client.getQueryCache().getAll().map(query => query.state))).not.toContain('temporary-secret');
-  expect(JSON.stringify(client.getMutationCache().getAll().map(mutation => mutation.state))).not.toContain('temporary-secret');
+  expect(JSON.stringify(client.getQueryCache().getAll().map(query => query.state))).not.toContain('password');
+  expect(JSON.stringify(client.getMutationCache().getAll().map(mutation => mutation.state))).not.toContain('password');
   expect(localStorage.length).toBe(0); expect(sessionStorage.length).toBe(0);
   fireEvent.click(screen.getByRole('button', { name: 'Tamam' }));
   expect(screen.queryByLabelText('Geçici şifre')).toBeNull();
@@ -71,23 +66,21 @@ test('validation blocks invalid input; pending submission cannot be sent twice a
   expect(screen.getByRole('button', { name: 'Personel oluştur' }).hasAttribute('disabled')).toBe(false);
 });
 
-test('existing account result has no password and does not claim an email was sent', async () => {
-  vi.mocked(api.inviteStaff).mockResolvedValue({ ...result, geciciSifre: null });
+test('existing account uses the same email invitation flow', async () => {
+  vi.mocked(api.inviteStaff).mockResolvedValue(result);
   setup(); await screen.findByText('Henüz personel eklemediniz'); fill();
   fireEvent.click(screen.getByRole('button', { name: 'Personel oluştur' }));
-  await screen.findByText('Bu e-posta mevcut bir hesaba ait. Personel, mevcut şifresiyle giriş yapabilir.');
+  await screen.findByRole('heading', { name: 'Davet gönderildi' });
+  expect(screen.getByText('Bağlantı 48 saat geçerlidir ve yalnızca bir kez kullanılabilir. Personel kabul edene kadar erişim açılmaz.')).toBeTruthy();
   expect(screen.queryByLabelText('Geçici şifre')).toBeNull();
-  expect(screen.getByText('E-posta gönderilmedi. Giriş bilgilerini personelle sizin paylaşmanız gerekiyor.')).toBeTruthy();
 });
 
-test('clipboard failure offers manual copying', async () => {
-  vi.mocked(api.inviteStaff).mockResolvedValue(result); copy.mockRejectedValue(new Error('Denied'));
+test('invitation result displays recipient but never a temporary password', async () => {
+  vi.mocked(api.inviteStaff).mockResolvedValue(result);
   setup(); await screen.findByText('Henüz personel eklemediniz'); fill();
   fireEvent.click(screen.getByRole('button', { name: 'Personel oluştur' }));
-  await screen.findByLabelText('Geçici şifre');
-  fireEvent.click(screen.getByRole('button', { name: 'Şifreyi kopyala' }));
-  await screen.findByRole('alert');
-  expect((screen.getByLabelText('Geçici şifre') as HTMLInputElement).value).toBe('temporary-secret');
+  await screen.findByText('deniz@example.com');
+  expect(screen.queryByLabelText('Geçici şifre')).toBeNull();
 });
 
 test('loading, error, retry and empty state are distinct', async () => {
@@ -105,8 +98,8 @@ test('successful invite result remains available if list refresh fails', async (
   setup(); await screen.findByText('Henüz personel eklemediniz'); fill();
   vi.mocked(api.getStaff).mockRejectedValue(new Error('Offline'));
   fireEvent.click(screen.getByRole('button', { name: 'Personel oluştur' }));
-  await screen.findByRole('heading', { name: 'Personel oluşturuldu' });
+  await screen.findByRole('heading', { name: 'Davet gönderildi' });
   await screen.findByRole('alert');
-  expect((screen.getByLabelText('Geçici şifre') as HTMLInputElement).value).toBe('temporary-secret');
+  expect(screen.getByText('deniz@example.com')).toBeTruthy();
   expect(api.inviteStaff).toHaveBeenCalledOnce();
 });

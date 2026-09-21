@@ -33,6 +33,7 @@ class AppointmentIntegrationTests extends PostgresTestBase {
         tenant=UUID.randomUUID(); user=UUID.randomUUID(); staff=UUID.randomUUID(); offering=UUID.randomUUID();
         jdbc.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)",tenant,"QA",tenant.toString(),"Europe/Istanbul");
         jdbc.update("insert into users(id,email,password_hash,full_name) values (?,?,?,?)",user,user+"@example.test","unused","QA");
+        jdbc.update("insert into memberships(user_id,tenant_id,role) values (?,?,'OWNER')",user,tenant);
         jdbc.update("insert into staff(id,tenant_id,user_id,display_name) values (?,?,?,?)",staff,tenant,user,"QA");
         jdbc.update("insert into services(id,tenant_id,name,duration_min,buffer_min,price) values (?,?,?,30,10,100)",offering,tenant,"QA");
         jdbc.update("insert into working_hours(tenant_id,staff_id,day_of_week,start_time,end_time) values (?,?,0,'09:00','18:00')",tenant,staff);

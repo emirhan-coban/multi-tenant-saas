@@ -117,15 +117,23 @@ jobs:
           APP_ALLOWED_ORIGINS=https://ci.example.test
           APP_HSTS_MAX_AGE_SECONDS=31536000
           APP_OPS_METRICS_TOKEN=ci-ops-token
-          APP_PUSH_VAPID_PUBLIC_KEY=
-          APP_PUSH_VAPID_PRIVATE_KEY=
+          # Yalnız CI smoke ortamına ait sabit test çifti; canlı anahtar değildir.
+          APP_PUSH_VAPID_PUBLIC_KEY=BG6ewAYoKaYdxSyENaSRA1219oH7D69eTx18VRuMWSsyTlo5e6bscqzcSCBBT2EIKWxRQtoG5X5bm9_Y0pZkC50
+          APP_PUSH_VAPID_PRIVATE_KEY=R1InDPpQ3Fg0ModJ15almusdDarxqgyVp7l65LyeNUQ
           APP_PUSH_SUBJECT=mailto:ci@example.test
           APP_PUBLIC_BASE_URL=https://ci.example.test
           APP_ACCOUNT_MAIL_KEY=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
           MAIL_ENABLED=false
           MAIL_DELIVERY_MODE=test
-          GMAIL_ADDRESS=
-          GMAIL_APP_PASSWORD=
+          GMAIL_ADDRESS=ci@example.test
+          GMAIL_APP_PASSWORD=ci-not-used
+          APP_BILLING_CALLBACK_URL=https://ci.example.test/api/public/billing/iyzico/callback
+          IYZICO_BASE_URL=https://sandbox-api.iyzipay.com
+          IYZICO_API_KEY=ci-api-key
+          IYZICO_SECRET_KEY=ci-secret-key
+          IYZICO_MERCHANT_ID=ci-merchant
+          IYZICO_PLAN_REFERENCE=ci-plan
+          APP_SUPPORT_OWNER=ci-operations
           EOF
 
       # Frontend nginx, backend readiness, PostgreSQL ve Redis aynı compose ağında sınanır.

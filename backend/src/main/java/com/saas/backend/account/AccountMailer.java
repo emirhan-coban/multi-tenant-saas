@@ -48,6 +48,20 @@ public class AccountMailer {
                 """.formatted(link), token);
     }
 
+    public boolean staffInvitation(String recipient, String token, String tenantName) {
+        String link = link("/personel-daveti", token);
+        return deliver(recipient, tenantName + " personel daveti", """
+                Merhaba,
+
+                %s çalışma alanına personel olarak davet edildiniz. Daveti kabul etmek için
+                aşağıdaki tek kullanımlık bağlantıyı 48 saat içinde açın:
+
+                %s
+
+                Bu daveti beklemiyorsanız bağlantıyı kullanmayın.
+                """.formatted(tenantName, link), token);
+    }
+
     private String link(String path, String token) {
         return baseUrl + path + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
     }

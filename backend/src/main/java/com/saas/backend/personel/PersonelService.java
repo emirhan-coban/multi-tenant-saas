@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class PersonelService {
@@ -27,6 +28,9 @@ public class PersonelService {
     private final MembershipRepository membershipRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.saas.backend.operations.OperationsService operations;
+    private final com.saas.backend.account.AccountTokenService tokens;
+    private final com.saas.backend.account.AccountMailer mailer;
+    private final org.springframework.jdbc.core.JdbcTemplate db;
 
     public PersonelService(
             PersonelRepository personelRepository,
@@ -34,7 +38,10 @@ public class PersonelService {
             TenantRepository tenantRepository,
             MembershipRepository membershipRepository,
             PasswordEncoder passwordEncoder,
-            com.saas.backend.operations.OperationsService operations
+            com.saas.backend.operations.OperationsService operations,
+            com.saas.backend.account.AccountTokenService tokens,
+            com.saas.backend.account.AccountMailer mailer,
+            org.springframework.jdbc.core.JdbcTemplate db
     ) {
         this.personelRepository = personelRepository;
         this.userRepository = userRepository;
@@ -42,6 +49,9 @@ public class PersonelService {
         this.membershipRepository = membershipRepository;
         this.passwordEncoder = passwordEncoder;
         this.operations = operations;
+        this.tokens = tokens;
+        this.mailer = mailer;
+        this.db = db;
     }
 
     @Transactional
@@ -50,31 +60,76 @@ public class PersonelService {
         Tenant tenant = tenantRepository.getReferenceById(currentUser.tenantId());
 
         User user = userRepository.findByEmail(request.email()).orElse(null);
-        String geciciSifre = null;
+        boolean newAccount = user == null;
 
         if (user == null) {
-            geciciSifre = rastgeleSifreUret();
             user = new User();
             user.setEmail(request.email());
             user.setFullName(request.displayName());
-            user.setPasswordHash(passwordEncoder.encode(geciciSifre));
-            userRepository.save(user);
+            user.setPasswordHash(passwordEncoder.encode(rastgeleSifreUret()));
+            userRepository.saveAndFlush(user);
         }
+
+        if (membershipRepository.findByUserIdAndTenantId(user.getId(), currentUser.tenantId()).isPresent())
+            throw new ApiException("STAFF_ALREADY_MEMBER", "Bu e-posta zaten işletmeye bağlı");
 
         Membership membership = new Membership();
         membership.setUser(user);
         membership.setTenant(tenant);
         membership.setRole("STAFF");
+        membership.setActive(false);
         membershipRepository.save(membership);
 
         Personel personel = new Personel();
         personel.setTenant(tenant);
         personel.setUser(user);
         personel.setDisplayName(request.displayName());
-        personelRepository.save(personel);
+        personel.setActive(false);
+        personelRepository.saveAndFlush(personel);
+        UUID invitationId = UUID.randomUUID();
+        String token = tokens.issue(com.saas.backend.account.AccountTokenService.Subject.staffInvitation(invitationId),
+                com.saas.backend.account.AccountTokenService.Purpose.STAFF_INVITE);
+        db.update("""
+                insert into staff_invitations(id,tenant_id,user_id,staff_id,token_hash,new_account,created_by)
+                values (?,?,?,?,?,?,?)
+                """, invitationId, currentUser.tenantId(), user.getId(), personel.getId(),
+                com.saas.backend.account.AccountTokenService.hash(token), newAccount, currentUser.userId());
+        if (!mailer.staffInvitation(user.getEmail(), token, tenant.getName())) {
+            tokens.discard(token);
+            throw new ApiException("MAIL_UNAVAILABLE", "Davet e-postası kuyruğa alınamadı. Tekrar deneyin.");
+        }
         operations.audit(currentUser,"STAFF_INVITED","staff",personel.getId(),java.util.Map.of());
 
-        return new PersonelDtos.DavetSonucu(personel.getId(), user.getEmail(), geciciSifre);
+        return new PersonelDtos.DavetSonucu(personel.getId(), user.getEmail(), true);
+    }
+
+    @Transactional
+    public void davetiKabulEt(PersonelDtos.DavetKabulRequest request) {
+        String tokenHash = com.saas.backend.account.AccountTokenService.hash(request.token());
+        var resolved = db.queryForList("select * from staff_invitation_for_token(?)", tokenHash);
+        if (resolved.isEmpty()) throw new ApiException("INVALID_ACCOUNT_TOKEN", "Davet bağlantısı geçersiz veya süresi dolmuş.");
+        UUID tenantId = (UUID) resolved.getFirst().get("tenant_id");
+        db.queryForObject("select set_config('app.current_tenant',?,true)", String.class, tenantId.toString());
+        var invites = db.queryForList("""
+                select id,user_id,new_account from staff_invitations
+                where id=? and token_hash=? and accepted_at is null for update
+                """, resolved.getFirst().get("id"), tokenHash);
+        if (invites.isEmpty()) throw new ApiException("INVALID_ACCOUNT_TOKEN", "Davet bağlantısı geçersiz veya süresi dolmuş.");
+        var invite = invites.getFirst();
+        boolean newAccount = Boolean.TRUE.equals(invite.get("new_account"));
+        if (newAccount && (request.password() == null || !request.password().matches("^(?=.*[A-ZÇĞİÖŞÜ])(?=.*[a-zçğıöşü])(?=.*\\d).{8,72}$")))
+            throw new ApiException("WEAK_PASSWORD", "Şifre en az 8 karakter, büyük/küçük harf ve rakam içermeli");
+        var subject = tokens.consume(request.token(), com.saas.backend.account.AccountTokenService.Purpose.STAFF_INVITE);
+        UUID userId = (UUID) invite.get("user_id");
+        if (!subject.id().equals(invite.get("id"))) throw new ApiException("INVALID_ACCOUNT_TOKEN", "Davet bağlantısı geçersiz veya süresi dolmuş.");
+        if (newAccount) db.update("update users set password_hash=?,email_verified_at=coalesce(email_verified_at,now()) where id=?",
+                passwordEncoder.encode(request.password()), userId);
+        db.update("""
+                update memberships m set active=true from staff_invitations i
+                where i.id=? and m.tenant_id=i.tenant_id and m.user_id=i.user_id
+                """, invite.get("id"));
+        db.update("update staff s set active=true from staff_invitations i where i.id=? and s.id=i.staff_id", invite.get("id"));
+        db.update("update staff_invitations set accepted_at=now() where id=?", invite.get("id"));
     }
 
     @Transactional(readOnly = true)
@@ -85,17 +140,18 @@ public class PersonelService {
                 .toList();
     }
 
-            @Transactional
-            public void erisimiKaldir(AuthenticatedUser currentUser, java.util.UUID personelId) {
+    @Transactional
+    public void erisimiKaldir(AuthenticatedUser currentUser, UUID personelId) {
+            operations.context(currentUser.tenantId());
             var personel = personelRepository.findByIdAndTenantId(personelId, currentUser.tenantId())
                 .orElseThrow(() -> new ApiException("NOT_FOUND", "Personel bulunamadı"));
-            if (!personel.isActive() && membershipRepository.findByUserIdAndTenantId(personel.getUser().getId(), currentUser.tenantId())
-                .map(Membership::isActive).orElse(false) == false) return;
+            if (!personel.isActive() && !membershipRepository.findByUserIdAndTenantId(personel.getUser().getId(), currentUser.tenantId())
+                .map(Membership::isActive).orElse(false)) return;
             personel.setActive(false);
             membershipRepository.findByUserIdAndTenantId(personel.getUser().getId(), currentUser.tenantId())
                 .ifPresent(membership -> membership.setActive(false));
             operations.audit(currentUser, "STAFF_ACCESS_REVOKED", "staff", personelId, java.util.Map.of());
-            }
+    }
 
     private String rastgeleSifreUret() {
         StringBuilder sb = new StringBuilder();

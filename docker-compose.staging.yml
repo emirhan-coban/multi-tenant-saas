@@ -1,0 +1,26 @@
+# Production compose üzerine staging katmanı. Ayrı env dosyası ve Compose proje adıyla
+# production ağından, veritabanından, volume'lardan ve anahtarlardan ayrılır.
+services:
+  frontend:
+    ports: !reset []
+
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      STAGING_DOMAIN: ${STAGING_DOMAIN:?zorunlu}
+      ACME_EMAIL: ${ACME_EMAIL:?zorunlu}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ops/staging/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_started
+
+volumes:
+  caddy_data:
+  caddy_config:

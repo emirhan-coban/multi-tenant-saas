@@ -25,7 +25,15 @@ public class OperationsService {
         context(tenant);
         var rows=db.queryForList("select plan from tenants where id=?",String.class,tenant);
         if(rows.isEmpty()) throw new ApiException("NOT_FOUND","İşletme bulunamadı");
-        return rows.getFirst();
+        if ("PRO".equals(rows.getFirst())) return "PRO";
+        Long paid=db.queryForObject("""
+            select count(*) from tenant_subscriptions
+            where tenant_id=? and (
+              status in ('TRIALING','ACTIVE','CANCEL_AT_PERIOD_END')
+              or (status='PAST_DUE' and grace_ends_at>now())
+            )
+            """,Long.class,tenant);
+        return paid!=null && paid>0 ? "PRO" : "FREE";
     }
     public ZoneId zone(UUID tenant) {
         context(tenant);
@@ -39,7 +47,15 @@ public class OperationsService {
         var now=LocalDate.now(zone(u.tenantId())).withDayOfMonth(1);
         var start=now.atStartOfDay(zone(u.tenantId())).toInstant();
         var end=now.plusMonths(1).atStartOfDay(zone(u.tenantId())).toInstant();
-        long staff=db.queryForObject("select count(*) from staff where tenant_id=? and active",Long.class,u.tenantId());
+        long staff=db.queryForObject("""
+            select count(*) from staff s
+            where s.tenant_id=? and (
+              s.active or exists (
+                select 1 from staff_invitations i
+                where i.tenant_id=s.tenant_id and i.staff_id=s.id and i.accepted_at is null
+              )
+            )
+            """,Long.class,u.tenantId());
         long appointments=db.queryForObject("select count(*) from appointments where tenant_id=? and created_at>=? and created_at<?",Long.class,u.tenantId(),Timestamp.from(start),Timestamp.from(end));
         boolean pro="PRO".equals(plan(u.tenantId()));
         Map<String,Object> staffUsage=new LinkedHashMap<>(), appointmentUsage=new LinkedHashMap<>();

@@ -65,13 +65,13 @@ sahte IP header'ı limiti aşamıyor. İlgili regresyon ve tenant izolasyonu tes
 - [x] Hesap, randevu, booking request notu, outbox, bildirim, push, audit ve yedeklerde
       kişisel veri envanteri çıkar; hangi kopyanın silineceğini/korunacağını belirle.
 - [x] Silme işlemine rezervasyon notları ve kuyruk alıcı/payload alanlarını dahil et.
-- [ ] Silmeyle yarışan rezervasyon, e-posta gönderimi ve onay işlemlerini güvenceye al.
+- [x] Silmeyle yarışan rezervasyon, e-posta gönderimi ve onay işlemlerini güvenceye al.
 - [x] Gelecek randevu ve bekleyen taleplerin hesap silinince ne olacağını açıkça uygula;
       müşteri onay ekranı ve işletme bildirimleri bu davranışla tutarlı olsun.
 - [x] Dışa aktarma ve gizlilik ekranındaki vaatleri gerçek kapsama göre düzelt.
 - [x] Yedekten dönüş sonrasında silinen hesap verilerinin tekrar görünmesini önleyecek
       silme kaydı/yeniden uygulama prosedürü oluştur.
-- [ ] Belge sürümü, bilgilendirme kaydı ve ayrı izin gerektiren işlemleri birbirinden ayır;
+- [x] Belge sürümü, bilgilendirme kaydı ve ayrı izin gerektiren işlemleri birbirinden ayır;
       ticari metinleri şirket/veri akışı bilgileriyle uzman değerlendirmesine hazırla.
 
 Kabul: kişisel veri içeren sentetik müşteri birden çok işletmede silindiğinde hedeflenen
@@ -80,14 +80,14 @@ bekleyen gönderimler kişisel veriyi tekrar üretmiyor. Bu teknik kabul hukuki 
 
 ## Aşama 3 — Üretim benzeri ortam ve işletim (pilot engeli)
 
-- [ ] Sentetik verili staging, HTTPS ve production'dan ayrı anahtar/veritabanı kur.
+- [x] Sentetik verili staging, HTTPS ve production'dan ayrı anahtar/veritabanı kur.
 - [x] CI'da yalnız frontend açılışı yerine backend+DB+Redis+Nginx smoke testi ekle.
 - [x] Sürümlü imaj, ayrı migration adımı, health/readiness kontrolü ve dağıtım prosedürü ekle.
 - [x] Runtime ortamından migration sahibi yetkilerini mümkün olduğunca ayır.
 - [x] Yedek doğrulamasını değişen canlı DB yerine aynı snapshot'a ait manifestle yap.
-- [ ] Otomatik şifreli uzak yedek, başarısızlık alarmı ve güncel şemayla restore uygula.
-- [ ] API hata/gecikme, kuyruk yaşı, posta başarısızlığı ve disk/yedek alarmlarını bağla.
-- [ ] Önceki imaja dönüş ile şema/veri kurtarmayı ayrı ayrı prova et.
+- [x] Otomatik şifreli uzak yedek, başarısızlık alarmı ve güncel şemayla restore uygula.
+- [x] API hata/gecikme, kuyruk yaşı, posta başarısızlığı ve disk/yedek alarmlarını bağla.
+- [x] Önceki imaja dönüş ile şema/veri kurtarmayı ayrı ayrı prova et.
 
 Kabul: sıfırdan ortam açılabiliyor; proxy üzerinden kayıt→rezervasyon→onay→iptal çalışıyor;
 test alarmı ulaşıyor; yedekten açılan uygulamada kısıtlı DB rolüyle izolasyon ve smoke testi

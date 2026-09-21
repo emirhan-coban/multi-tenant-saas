@@ -9,30 +9,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenant } from '../store/tenant';
 
 function InviteResultDialog({ result, onClose }: { result: InviteResult; onClose: () => void }) {
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  const [copying, setCopying] = useState(false);
-  const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  async function copyPassword() {
-    if (!result.geciciSifre || copying) return;
-    setCopying(true);
-    try {
-      await navigator.clipboard.writeText(result.geciciSifre);
-      if (mounted.current) setCopyState('copied');
-    } catch { if (mounted.current) setCopyState('error'); }
-    finally { if (mounted.current) setCopying(false); }
-  }
-  return <Modal title="Personel oluşturuldu" onClose={onClose}>
-    <p className="muted">Personel çalışma alanınıza eklendi. Giriş bilgilerini kendisiyle paylaşabilirsiniz.</p>
+  return <Modal title="Davet gönderildi" onClose={onClose}>
+    <p className="muted">Tek kullanımlık davet bağlantısı personelin e-posta adresine gönderildi.</p>
     <dl className="invite-result-details"><div><dt>E-posta</dt><dd>{result.email}</dd></div></dl>
-    {result.geciciSifre ? <div className="password-panel">
-      <label className="field" htmlFor="invite-password"><span>Geçici şifre</span></label>
-      <div className="password-actions"><input id="invite-password" aria-describedby="password-help" readOnly value={result.geciciSifre} spellCheck={false} autoComplete="off" onFocus={event => event.currentTarget.select()} /><Button variant="quiet" disabled={copying} onClick={copyPassword}>{copying ? 'Kopyalanıyor…' : 'Şifreyi kopyala'}</Button></div>
-      <p id="password-help" className="muted">Bu pencere kapandığında geçici şifreyi tekrar görüntüleyemezsiniz.</p>
-      {copyState === 'copied' && <p role="status" className="copy-success">Şifre kopyalandı.</p>}
-      {copyState === 'error' && <p role="alert" className="form-error">Şifre kopyalanamadı. Şifre alanını seçip elle kopyalayabilirsiniz.</p>}
-    </div> : <p className="info-notice">Bu e-posta mevcut bir hesaba ait. Personel, mevcut şifresiyle giriş yapabilir.</p>}
-    <p className="muted invite-note">E-posta gönderilmedi. Giriş bilgilerini personelle sizin paylaşmanız gerekiyor.</p>
+    <p className="info-notice">Bağlantı 48 saat geçerlidir ve yalnızca bir kez kullanılabilir. Personel kabul edene kadar erişim açılmaz.</p>
     <div className="modal-actions"><Button data-autofocus="true" onClick={onClose}>Tamam</Button></div>
   </Modal>;
 }
@@ -42,7 +22,7 @@ export function StaffScreen() {
   const client = useQueryClient();
   const { tenantId } = useTenant();
   const [removing, setRemoving] = useState<{ id: string; displayName: string } | null>(null);
-  const deactivate = useMutation({ mutationFn: (id: string) => api.delete('/api/staff/' + id), onSuccess: () => {
+  const deactivate = useMutation({ mutationFn: (id: string) => api.delete('/api/staff/' + id + '/access'), onSuccess: () => {
     setRemoving(null); void client.invalidateQueries({ queryKey: ['tenant', tenantId] });
   } });
   const [open, setOpen] = useState(false);
@@ -82,7 +62,7 @@ export function StaffScreen() {
     {staff.isSuccess && !rows.length && <section className="empty-state"><span className="empty-symbol" aria-hidden="true">＋</span><h2>Henüz personel eklemediniz</h2><p>İlk çalışma arkadaşınızı davet ederek ekibinizi oluşturmaya başlayın.</p><Button disabled={invite.isPending} onClick={openInvite}>İlk personelini davet et</Button></section>}
     {!!rows.length && <section className="staff-list" aria-label="Personel listesi"><div className="staff-list-heading"><h2>Ekibiniz</h2><span className="role-badge">{rows.length} kişi</span></div><ul>{rows.map(person => <li key={person.id}><span className="staff-avatar" aria-hidden="true">{person.displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toLocaleUpperCase('tr-TR')}</span><strong>{person.displayName}</strong><span className={`staff-status${person.active ? '' : ' is-inactive'}`}><span aria-hidden="true" />{person.active ? 'Aktif' : 'Pasif'}</span><Button variant="quiet" onClick={() => { deactivate.reset(); setRemoving(person); }}>Pasifleştir</Button></li>)}</ul></section>}
     {open && <Modal title="Personel davet et" busy={invite.isPending} onClose={() => setOpen(false)}>
-      <form onSubmit={submit} noValidate><p className="modal-description muted">Personel çalışma alanınıza eklenir. Giriş bilgileri işlem sonunda gösterilir; otomatik e-posta gönderilmez.</p>
+      <form onSubmit={submit} noValidate><p className="modal-description muted">Personel erişimi, e-postayla gönderilen tek kullanımlık daveti kabul ettiğinde açılır.</p>
         <fieldset className="invite-fields" disabled={invite.isPending}>
           <label className="field" htmlFor="invite-name"><span id="invite-name-label">Ad soyad</span><input id="invite-name" aria-labelledby="invite-name-label" data-autofocus="true" autoComplete="name" value={values.displayName} required aria-invalid={!!errors.displayName} aria-describedby={errors.displayName ? 'invite-name-error' : undefined} onChange={event => setValues(previous => ({ ...previous, displayName: event.target.value }))} />{errors.displayName && <small id="invite-name-error">{errors.displayName}</small>}</label>
           <label className="field" htmlFor="invite-email"><span id="invite-email-label">E-posta</span><input id="invite-email" aria-labelledby="invite-email-label" type="email" autoComplete="email" value={values.email} required aria-invalid={!!errors.email} aria-describedby={errors.email ? 'invite-email-error' : undefined} onChange={event => setValues(previous => ({ ...previous, email: event.target.value }))} />{errors.email && <small id="invite-email-error">{errors.email}</small>}</label>
@@ -92,10 +72,10 @@ export function StaffScreen() {
       </form>
     </Modal>}
     {result && <InviteResultDialog result={result} onClose={() => { setResult(null); invite.reset(); }} />}
-    {removing && <Modal title="Personeli pasifleştir" busy={deactivate.isPending} onClose={() => setRemoving(null)}>
-      <p>{removing.displayName} aktif listeden çıkarılacak ve personel kotasında yer açılacak. Mevcut randevular korunur. Bu işlem hesabın giriş yetkisini kaldırmaz.</p>
+    {removing && <Modal title="Personel erişimini kaldır" busy={deactivate.isPending} onClose={() => setRemoving(null)}>
+      <p>{removing.displayName} aktif listeden çıkarılacak, bu işletmeye giriş yetkisi kapatılacak ve personel kotasında yer açılacak. Mevcut randevular korunur.</p>
       {deactivate.isError && <p role="alert">{errorMessage(deactivate.error, 'Personel pasifleştirilemedi.')}</p>}
-      <div className="modal-actions"><Button variant="quiet" disabled={deactivate.isPending} onClick={() => setRemoving(null)}>Vazgeç</Button><Button disabled={deactivate.isPending} onClick={() => deactivate.mutate(removing.id)}>Pasifleştirmeyi onayla</Button></div>
+      <div className="modal-actions"><Button variant="quiet" disabled={deactivate.isPending} onClick={() => setRemoving(null)}>Vazgeç</Button><Button disabled={deactivate.isPending} onClick={() => deactivate.mutate(removing.id)}>Erişimi kaldır</Button></div>
     </Modal>}
   </>;
 }
