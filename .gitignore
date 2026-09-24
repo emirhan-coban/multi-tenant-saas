@@ -1,5 +1,6 @@
 .env
 .env.mail
+.env.cloud
 
 # Web dependencies and build output
 web/node_modules/

@@ -79,6 +79,13 @@ docker compose --profile app up -d
 Frontend: http://localhost:5173/app — Backend health: http://localhost:8081/api/health.
 Bu geliştirme profili Postgres, Redis, backend ve frontend'i birlikte çalıştırır; yerel Java/Node gerektirmez.
 
+## Ücretsiz bulut veritabanı
+
+Yerel PostgreSQL/Redis yerine Supabase Free ve Upstash Redis kullanmak için güvenli rol
+kurulumu, Flyway migration'ı, mevcut veri aktarımı ve geri dönüş adımları
+[bulut veritabanı rehberinde](docs/cloud-database.md) yer alır. Gerçek bağlantı bilgileri
+yalnızca `.env.cloud` içinde tutulur ve Git'e eklenmez.
+
 ## Faz 4 — Operasyon ve raporlama
 
 Gmail ile gerçek müşteri e-postası desteği eklendi (varsayılan kapalı, güvenli test modu). `.env.mail` yerel ayarlarını ve test adımlarını [Gmail kurulum notlarında](docs/gmail-email.md) bulabilirsiniz. Müşteri e-postaları, önceki konsol hatırlatmalarından ayrı çalışır.
