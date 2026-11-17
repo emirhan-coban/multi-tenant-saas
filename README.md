@@ -17,7 +17,7 @@ working hours, and see reports. Turkish UI, English code-level docs below
 
 > The demo runs on free tiers (Cloudflare Workers, Render, Supabase, Upstash). The backend sleeps
 > after 15 minutes of inactivity, so the **first request can take 30-60 seconds**. Demo data is
-> fake and reset periodically; please do not enter real personal data.
+> fake and may be reset at any time; please do not enter real personal data.
 
 <p align="center">
   <img src="docs/media/booking-3d.jpg" alt="Interactive 3D chair picker" width="62%">
@@ -37,9 +37,17 @@ working hours, and see reports. Turkish UI, English code-level docs below
 </table>
 
 
-**Try it:** open the live link above, pick a chair in the 3D shop, choose a service and a slot.
-Owner and staff panel (`/login`) demo accounts are listed in
-[`docs/deploy-free.md`](docs/deploy-free.md#5-demo-verisi).
+### Try it
+
+| Role | Where | Login |
+| --- | --- | --- |
+| Customer (no account needed) | [`/book/demo-berber`](https://multi-tenant-saas.emirhancob4n.workers.dev/book/demo-berber) | pick a chair in 3D, a service and a slot |
+| Shop owner | [`/login`](https://multi-tenant-saas.emirhancob4n.workers.dev/login) | `demo@berber.test` / `Demo1234` |
+| Staff | [`/login`](https://multi-tenant-saas.emirhancob4n.workers.dev/login) | `ahmet@berber.test` / `Demo1234` |
+| Customer account (history, cancel) | [`/customer`](https://multi-tenant-saas.emirhancob4n.workers.dev/customer) | `musteri@berber.test` / `Demo1234` |
+
+The owner panel lets you review the approval queue, calendar, services, staff, working hours and
+the versioned 3D shop designer. These are public demo credentials for fake data.
 
 ## Highlights
 
@@ -134,7 +142,7 @@ cd web && npm ci && npm test && npm run build
 
 ## Deploying on free tiers
 
-Supabase (Postgres) + Upstash (Redis) + Cloudflare Pages (frontend) + a free container host for the
+Supabase (Postgres) + Upstash (Redis) + Cloudflare Workers (frontend, static assets) + a free container host for the
 backend. Step-by-step: [`docs/deploy-free.md`](docs/deploy-free.md) and
 [`docs/cloud-database.md`](docs/cloud-database.md).
 

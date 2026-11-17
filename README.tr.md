@@ -15,6 +15,7 @@ yarış koşullarına karşı güvenli rezervasyon (kilit + idempotency), güven
 onay, sürümlü 3D dükkan sahneleri, transactional outbox, rate limit, KVKK dışa aktarma/silme, PWA +
 Web Push, Testcontainers ile gerçek PostgreSQL üzerinde testler.
 
+- Demo giriş (sahip): `demo@berber.test` / `Demo1234`, personel: `ahmet@berber.test` / `Demo1234`
 - Yerelde çalıştırma: `cp .env.example .env && docker compose --profile app up -d`
 - Faz faz geliştirme notları: [docs/development-notes.tr.md](docs/development-notes.tr.md)
 - Ücretsiz yayın rehberi: [docs/deploy-free.md](docs/deploy-free.md)
