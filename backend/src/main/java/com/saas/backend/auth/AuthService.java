@@ -117,7 +117,7 @@ public class AuthService {
         List<AuthResponse.MembershipInfo> membershipInfos = memberships.stream()
                 .map(m -> new AuthResponse.MembershipInfo(
                         m.getTenant().getId(),
-                        m.getTenant().getName(),
+                        tenantName(m),
                         m.getRole()
                 ))
                 .toList();
@@ -150,9 +150,20 @@ public class AuthService {
         String newRefreshToken = jwtService.generateRefreshToken(userId, tenantId, membership.getRole(), sessionVersion);
         var membershipInfos = memberships.stream()
             .map(item -> new AuthResponse.MembershipInfo(
-                item.getTenant().getId(), item.getTenant().getName(), item.getRole()))
+                item.getTenant().getId(), tenantName(item), item.getRole()))
             .toList();
         return new AuthResponse(accessToken, newRefreshToken, membershipInfos);
+    }
+
+    /**
+     * `tenants` satırı RLS nedeniyle yalnızca kendi bağlamında okunur; giriş/yenileme sırasında
+     * henüz bir işletme bağlamı yoktur. Bağlam işlem içinde (set_config ... true) ilgili işletme
+     * için kurulur, işlem bitince kendiliğinden silinir; başka bir işletmeye sızmaz.
+     */
+    private String tenantName(Membership membership) {
+        db.queryForObject("select set_config('app.current_tenant', ?, true)", String.class,
+                membership.getTenant().getId().toString());
+        return membership.getTenant().getName();
     }
 
     private String generateUniqueSlug(String tenantName) {
