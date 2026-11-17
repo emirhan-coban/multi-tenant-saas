@@ -1,6 +1,6 @@
 # Ücretsiz yayın rehberi (portföy demosu)
 
-Hedef: Supabase (PostgreSQL) + Upstash (Redis) + Cloudflare Pages (web) + Render (backend).
+Hedef: Supabase (PostgreSQL) + Upstash (Redis) + Cloudflare Workers (web, static assets) + Render (backend).
 Hepsinin ücretsiz planı vardır; planlar zamanla değişebilir, kayıt olmadan önce güncel
 limitlere bakın. Gerçek sırlar **asla** repoya girmez: `.env.cloud` ve `.env.render` git'te yok sayılır.
 
@@ -28,7 +28,7 @@ Bölüm 4: ücretsiz Redis oluşturun, **TLS** (`rediss://`) URL'sini alın.
    | `SPRING_DATASOURCE_URL` | `.env.cloud` içindeki değer (`sslmode=require`, 5432) |
    | `APP_DB_USER` / `APP_DB_PASSWORD` | `saas_app` rolü ve parolası (`.env.cloud`) |
    | `APP_REDIS_URL` | Upstash `rediss://...` |
-   | `APP_ALLOWED_ORIGINS` | Frontend adresi, örn. `https://isim.pages.dev` (https, sonda `/` yok) |
+   | `APP_ALLOWED_ORIGINS` | Frontend adresi, örn. `https://isim.hesap.workers.dev` (https, sonda `/` yok) |
    | `APP_PUBLIC_BASE_URL` | Aynı frontend adresi |
    | `APP_ACCOUNT_MAIL_KEY`, `APP_PUSH_VAPID_PUBLIC_KEY`, `APP_PUSH_VAPID_PRIVATE_KEY`, `APP_PUSH_SUBJECT` | Yerel `.env.render` dosyasından kopyalayın |
 
