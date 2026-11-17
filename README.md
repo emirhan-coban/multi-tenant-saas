@@ -12,13 +12,34 @@ interactive **3D shop** and book a slot; shop owners approve requests, manage st
 working hours, and see reports. Turkish UI, English code-level docs below
 ([Türkçe özet](README.tr.md)).
 
-**Live demo:** _TODO: add URL_ · **Demo owner login:** `demo@berber.test` / `Demo1234`
-(demo data is reset periodically; do not enter real personal data)
+**Live demo:** https://multi-tenant-saas.emirhancob4n.workers.dev/book/demo-berber
+· **API health:** https://saas-backend-ms03.onrender.com/api/health
 
-<!-- Add screenshots after capturing them (see docs/deploy-free.md):
-![3D seat picker](docs/media/3d-booking.png)
-![Owner dashboard](docs/media/dashboard.png)
--->
+> The demo runs on free tiers (Cloudflare Workers, Render, Supabase, Upstash). The backend sleeps
+> after 15 minutes of inactivity, so the **first request can take 30-60 seconds**. Demo data is
+> fake and reset periodically; please do not enter real personal data.
+
+<p align="center">
+  <img src="docs/media/booking-3d.jpg" alt="Interactive 3D chair picker" width="62%">
+  &nbsp;
+  <img src="docs/media/booking-mobile.jpg" alt="Mobile booking flow" width="22%">
+</p>
+### Owner panel
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/approval-queue.png" alt="Booking approval queue for first-time customers"><br><sub><b>Approval queue</b>: first-time customers wait for owner/manager review</sub></td>
+    <td width="50%"><img src="docs/media/calendar.png" alt="Staff calendar with confirmed appointments"><br><sub><b>Calendar</b>: per-staff day/week view with drag-to-reschedule</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/media/dashboard.jpg" alt="Owner dashboard" width="50%"><br><sub><b>Dashboard</b>: role-based navigation (OWNER / MANAGER / STAFF)</sub></td>
+  </tr>
+</table>
+
+
+**Try it:** open the live link above, pick a chair in the 3D shop, choose a service and a slot.
+Owner and staff panel (`/login`) demo accounts are listed in
+[`docs/deploy-free.md`](docs/deploy-free.md#5-demo-verisi).
 
 ## Highlights
 
@@ -59,6 +80,40 @@ working hours, and see reports. Turkish UI, English code-level docs below
 | Ops, deploy, backups | `ops/` |
 | Design notes per phase (Turkish) | `docs/` — start with [`development-notes.tr.md`](docs/development-notes.tr.md) |
 | API contract | [`docs/contracts/booking-v1.openapi.yaml`](docs/contracts/booking-v1.openapi.yaml) |
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Backend | Java 21, Spring Boot 4, Spring Security (JWT), JPA/Hibernate, Flyway, Bucket4j, ShedLock |
+| Data | PostgreSQL 16 with Row Level Security, Redis (rate limits, shared counters) |
+| Web | React 19, Vite, TypeScript, TanStack Query, React Router 7, Three.js / react-three-fiber |
+| Quality | JUnit 5 + Testcontainers (real Postgres/Redis), Vitest + Testing Library, GitHub Actions |
+| Ops | Docker, nginx, Prometheus metrics, Web Push (VAPID), PWA, KVKK/GDPR export & deletion |
+| Hosting (demo) | Cloudflare Workers (static assets), Render, Supabase, Upstash: all free tiers |
+
+## Engineering notes
+
+- **RLS needs care at the edges.** Pre-login flows have no tenant context, so reading a `tenants`
+  row under RLS fails unless the context is set inside the transaction. This bit the first live
+  deploy (login returned a masked 401) and is now covered by a real-HTTP regression test
+  (`StaffLoginTenantContextTests`), because the older tests did not exercise that path.
+- **Why a restricted DB role matters.** Tests and production both connect as `saas_app`
+  (`NOSUPERUSER NOBYPASSRLS`); a superuser connection would silently bypass every policy.
+- **Session pooling.** Tenant context is session state, so Supabase's *session* pooler (port 5432)
+  is required; the transaction pooler (6543) would break isolation.
+- **Fail-closed rate limiting.** If Redis is unreachable, auth endpoints refuse requests instead of
+  skipping the limit (`RATE_LIMIT_UNAVAILABLE`), and the cause is logged.
+- Per-phase design notes (Turkish) live in [`docs/`](docs/development-notes.tr.md).
+
+## Known limitations
+
+- Free-tier hosting means cold starts (see the note above) and Supabase pauses idle projects after
+  7 days; a scheduled workflow (`.github/workflows/keepalive.yml`) pings the API to prevent that.
+- The public demo runs with e-mail delivery disabled and billing in demo mode (no real payments).
+  Production mode (`APP_SECURITY_DEV_SECRETS_ALLOWED=false`) requires live Gmail credentials and
+  real secrets; see [`docs/deploy-free.md`](docs/deploy-free.md#bilinçli-demo-ödünleri).
+- The UI is Turkish only.
 
 ## Run locally
 

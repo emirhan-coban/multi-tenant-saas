@@ -37,15 +37,20 @@ Bölüm 4: ücretsiz Redis oluşturun, **TLS** (`rediss://`) URL'sini alın.
 
 Flyway uygulamada kapalıdır; şema değişince `setup-supabase.sh` yeniden çalıştırılır.
 
-## 4. Frontend (Cloudflare Pages)
+## 4. Frontend (Cloudflare Workers, static assets)
 
-1. dash.cloudflare.com → **Workers & Pages → Create → Pages → Connect to Git** → repo.
-2. Ayarlar: **Root directory** `web`, **Build command** `npm ci && npm run build`,
-   **Output directory** `dist`.
-3. Environment variables: `NODE_VERSION=22`, `VITE_API_URL=https://<servis>.onrender.com`,
-   `VITE_PUBLIC_APP_URL=https://<proje>.pages.dev`.
-4. `web/wrangler.jsonc` (Workers static assets) SPA yönlendirmesini sağlar. Sonra Render'daki `APP_ALLOWED_ORIGINS`
-   değerinin gerçek Pages adresiyle aynı olduğunu doğrulayın.
+Cloudflare yeni projeleri Workers olarak açar; `web/wrangler.jsonc` `dist` klasörünü yayınlar ve
+bilinmeyen yolları `index.html`'e düşürür (SPA yönlendirmesi).
+
+1. dash.cloudflare.com → **Workers & Pages → Create → Import a repository** → bu repo.
+2. **Root directory:** `web` (başında `/` olmadan), **Build command:** `npm run build`,
+   **Deploy command:** `npx wrangler deploy`. Worker adı `web/wrangler.jsonc` içindeki `name` ile
+   aynı olmalıdır (`multi-tenant-saas`).
+3. **Build variables:** `NODE_VERSION=22`, `VITE_API_URL=https://<servis>.onrender.com`,
+   `VITE_PUBLIC_APP_URL=https://<worker>.<alt-alan>.workers.dev`.
+4. Settings → Domains & Routes → **workers.dev** adresini etkinleştirin.
+5. Render'daki `APP_ALLOWED_ORIGINS` ve `APP_PUBLIC_BASE_URL` değerini bu adresle eşitleyin
+   (https, sonda `/` yok); aksi halde tarayıcı CORS nedeniyle API'ye erişemez.
 
 ## 5. Demo verisi
 
@@ -79,3 +84,12 @@ Render'ı hem Supabase'i (7 gün hareketsizlikte duraklar) uyanık tutar.
   e-posta kapalıdır ve bu denetim uyarıya düşer. JWT, VAPID ve e-posta anahtarları yine rastgele ve
   güçlüdür. Gerçek müşteri için bu bayrak `false`, `MAIL_DELIVERY_MODE=live` olmalıdır.
 - Ödeme (iyzico) yapılandırılmamıştır; plan yükseltme demodur.
+
+## Sık karşılaşılan sorunlar
+
+- **`tenant/user ... not found` (Supabase):** pooler hostu veya proje ref'i yanlış ya da proje
+  duraklatılmış. Connect ekranındaki Session pooler değerlerini birebir kullanın.
+- **`503 RATE_LIMIT_UNAVAILABLE`:** Upstash Redis'e ulaşılamıyor (veritabanı silinmiş olabilir).
+  Yeni veritabanı açıp `APP_REDIS_URL`'yi güncelleyin; adres `rediss://` (TLS) olmalı.
+- **Cloudflare `package.json` bulunamadı:** Root directory `web` olmalı, başında `/` olmadan.
+- **Frontend açılıyor ama istekler engelleniyor:** Render'da `APP_ALLOWED_ORIGINS` eksik/yanlış.

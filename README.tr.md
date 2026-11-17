@@ -6,6 +6,10 @@ Bağımsız berberler için çok kiracılı randevu platformu. Müşteri 3D dük
 talep eder; işletme sahibi talepleri onaylar, personel/hizmet/çalışma saatlerini yönetir ve
 raporları görür.
 
+**Canlı demo:** https://multi-tenant-saas.emirhancob4n.workers.dev/book/demo-berber (ücretsiz katmanda çalışır; ilk istek 30-60 sn sürebilir)
+
+<p align="center"><img src="docs/media/booking-3d.jpg" alt="3D koltuk seçimi" width="62%"></p>
+
 **Öne çıkanlar:** PostgreSQL Row Level Security ile veritabanı seviyesinde tenant izolasyonu,
 yarış koşullarına karşı güvenli rezervasyon (kilit + idempotency), güvenilir müşteri için otomatik
 onay, sürümlü 3D dükkan sahneleri, transactional outbox, rate limit, KVKK dışa aktarma/silme, PWA +
