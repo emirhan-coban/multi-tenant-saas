@@ -25,7 +25,9 @@ export type BookingVitals = {
   narrow: boolean;
 };
 
-const ENDPOINT = '/api/public/v1/metrics/booking';
+// API farklı bir origin'deyse (Cloudflare + Render) göreli yol frontend'e düşer ve 405 alır.
+const API_URL = ((import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8080').replace(/\/+$/, '');
+const ENDPOINT = `${API_URL}/api/public/v1/metrics/booking`;
 
 function now() {
   return typeof performance !== 'undefined' ? Math.round(performance.now()) : 0;
@@ -93,12 +95,19 @@ export class BookingVitalsRecorder {
     this.sent = true;
     this.summariseFrames();
     this.stop();
-    // Yalnızca sendBeacon: sayfa kapanırken güvenilir olan tek yol budur ve
-    // `fetch` yedeği, göreli adresi çözemeyen ortamlarda (test, worker) yakalanamayan
-    // reddedilmiş bir söz bırakıyordu. Beacon yoksa ölçüm sessizce atlanır.
+    // Adres mutlaktır ve reddedilen söz yakalanır; böylece test/worker ortamlarında
+    // yakalanmamış söz kalmaz. Gönderilemezse ölçüm sessizce atlanır.
     try {
-      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        navigator.sendBeacon(ENDPOINT, new Blob([JSON.stringify(this.data)], { type: 'application/json' }));
+      // sendBeacon farklı origin'e JSON gönderirken kimlik bilgili CORS ister ve sessizce düşebilir;
+      // keepalive'lı fetch sayfa kapanırken de gönderir ve kimlik bilgisi taşımaz.
+      if (typeof fetch === 'function') {
+        void fetch(ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.data),
+          keepalive: true,
+          credentials: 'omit',
+        }).catch(() => undefined);
       }
     } catch {
       // Ölçüm gönderilemezse akış etkilenmez.
