@@ -1,0 +1,56 @@
+# Render Blueprint: ücretsiz web servisi olarak backend (Docker).
+# Gizli değerler `sync: false` ile işaretlidir; Render panelinde elle girilir (docs/deploy-free.md).
+services:
+  - type: web
+    name: saas-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /actuator/health/liveness
+    envVars:
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx380m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError"
+      - key: SPRING_MAIN_LAZY_INITIALIZATION
+        value: "true"
+      - key: SPRING_FLYWAY_ENABLED
+        value: "false"
+      # Demo kipi: canlı Gmail zorunluluğu uyarıya düşer. JWT/VAPID/mail anahtarları yine de gerçek ve güçlüdür.
+      - key: APP_SECURITY_DEV_SECRETS_ALLOWED
+        value: "true"
+      - key: APP_PUSH_ALLOW_EPHEMERAL_KEYS
+        value: "false"
+      - key: MAIL_ENABLED
+        value: "false"
+      - key: MAIL_DELIVERY_MODE
+        value: "test"
+      - key: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+        value: "5"
+      - key: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+        value: "1"
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: APP_DB_USER
+        sync: false
+      - key: APP_DB_PASSWORD
+        sync: false
+      - key: APP_REDIS_URL
+        sync: false
+      - key: APP_JWT_SECRET
+        generateValue: true
+      - key: APP_ALLOWED_ORIGINS
+        sync: false
+      - key: APP_PUBLIC_BASE_URL
+        sync: false
+      - key: APP_OPS_METRICS_TOKEN
+        generateValue: true
+      - key: APP_ACCOUNT_MAIL_KEY
+        sync: false
+      - key: APP_PUSH_VAPID_PUBLIC_KEY
+        sync: false
+      - key: APP_PUSH_VAPID_PRIVATE_KEY
+        sync: false
+      - key: APP_PUSH_SUBJECT
+        sync: false
+      - key: APP_SUPPORT_OWNER
+        value: "demo"

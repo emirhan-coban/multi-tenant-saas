@@ -139,7 +139,10 @@ jobs:
       # Frontend nginx, backend readiness, PostgreSQL ve Redis aynı compose ağında sınanır.
       - name: Üretim benzeri smoke ortamını aç
         run: |
-          docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml --env-file .env.ci up -d --no-build
+          docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml --env-file .env.ci up -d --no-build || {
+            docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml --env-file .env.ci logs backend migration
+            exit 1
+          }
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/index.html >/dev/null \
               && curl -fsS http://127.0.0.1:8080/api/health >/dev/null \

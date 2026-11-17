@@ -1,0 +1,22 @@
+name: Keep-alive
+
+# Ücretsiz katmanlar hareketsizlikte uyur: Supabase 7 gün sonra projeyi duraklatır,
+# Render ücretsiz web servisi 15 dk sonra uyur. Bu iş ikisini de periyodik uyandırır.
+# Repo > Settings > Secrets and variables > Actions altında DEMO_API_URL tanımlı değilse iş sessizce atlanır.
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Backend sağlık ucu (veritabanı ve Redis'i de uyandırır)
+        env:
+          DEMO_API_URL: ${{ secrets.DEMO_API_URL }}
+        run: |
+          if [ -z "$DEMO_API_URL" ]; then echo "DEMO_API_URL tanımlı değil, atlandı."; exit 0; fi
+          curl -fsS --max-time 90 --retry 3 --retry-delay 10 "$DEMO_API_URL/actuator/health/readiness" || true

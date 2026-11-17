@@ -92,6 +92,9 @@ services:
       context: ./backend
       target: migration
     restart: "no"
+    # İmajın varsayılan komutu yoktur; komut verilmezse Flyway yalnızca yardım basıp çıkar
+    # ve şema hiç oluşmaz (backend sağlıksız kalır).
+    command: ["-connectRetries=10", "migrate"]
     environment:
       FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       FLYWAY_USER: ${POSTGRES_USER}
