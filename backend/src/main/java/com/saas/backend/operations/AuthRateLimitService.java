@@ -1,12 +1,15 @@
 package com.saas.backend.operations;
 
 import com.saas.backend.auth.ApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
 
 @Service
 public class AuthRateLimitService {
+    private static final Logger LOG = LoggerFactory.getLogger(AuthRateLimitService.class);
     private final TenantRateLimiter limiter;
 
     public AuthRateLimitService(TenantRateLimiter limiter) {
@@ -22,6 +25,8 @@ public class AuthRateLimitService {
         } catch (ApiException ex) {
             throw ex;
         } catch (RuntimeException ex) {
+            // Redis erişilemezse istek güvenli tarafta reddedilir; neden görünür olsun.
+            LOG.warn("Hesap istek sınırlayıcısı kullanılamıyor (scope={}): {}", scope, ex.toString());
             throw new ApiException("RATE_LIMIT_UNAVAILABLE", "İstek denetimi geçici olarak kullanılamıyor. Tekrar deneyin.");
         }
     }
