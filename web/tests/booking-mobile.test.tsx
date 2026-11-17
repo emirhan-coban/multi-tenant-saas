@@ -146,6 +146,9 @@ test('geri tuşu bir aşama geri alır, dükkândan çıkarmaz', async () => {
   await screen.findByRole('heading', { name: 'Berberini seç' });
   fireEvent.click(screen.getByRole('button', { name: /Saat seç/ }));
   await screen.findByRole('heading', { name: 'Saatini seç' });
+  // Aşama sayacı başlıktan sonra çalışan bir effect'te eşitlenir (history.pushState ile aynı
+  // anda). Beklemeden popstate tetiklemek, dinleyicinin olayı yok saymasına yol açıyordu.
+  await waitFor(() => expect(window.history.state?.bkDepth).toBe(1));
 
   fireEvent.popState(window, { state: { bkDepth: 0 } });
 
