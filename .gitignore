@@ -26,3 +26,14 @@ web/dist-*.tgz
 
 # Claude masaüstü uygulamasının çalışma klasörü
 Claude outputs/
+
+# IDE / API istemcisi
+.idea/
+.postman/
+postman/
+
+# Claude Code yerel ayarları
+.claude/
+
+# Dağıtım için üretilen yerel sır dosyası
+.env.render

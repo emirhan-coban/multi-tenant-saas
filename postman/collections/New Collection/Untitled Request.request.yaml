@@ -1,7 +1,0 @@
-$kind: http-request
-description: ""
-url: ""
-method: GET
-headers:
-  Authorization: Bearer {{supabase_service_role_api_key_160c}}
-order: 4466743386240836
