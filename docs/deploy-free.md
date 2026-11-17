@@ -44,7 +44,7 @@ Flyway uygulamada kapalıdır; şema değişince `setup-supabase.sh` yeniden ça
    **Output directory** `dist`.
 3. Environment variables: `NODE_VERSION=22`, `VITE_API_URL=https://<servis>.onrender.com`,
    `VITE_PUBLIC_APP_URL=https://<proje>.pages.dev`.
-4. `web/public/_redirects` SPA yönlendirmesini sağlar. Sonra Render'daki `APP_ALLOWED_ORIGINS`
+4. `web/wrangler.jsonc` (Workers static assets) SPA yönlendirmesini sağlar. Sonra Render'daki `APP_ALLOWED_ORIGINS`
    değerinin gerçek Pages adresiyle aynı olduğunu doğrulayın.
 
 ## 5. Demo verisi

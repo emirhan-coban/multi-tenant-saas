@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers (static assets) ile frontend yayını. Build: `npm run build` -> dist/
+  // Bilinmeyen yollar index.html'e düşer (SPA yönlendirmesi: /app, /login, /book/...).
+  "name": "multi-tenant-saas",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
