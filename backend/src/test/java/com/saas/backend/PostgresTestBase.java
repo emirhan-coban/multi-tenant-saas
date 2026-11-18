@@ -26,6 +26,20 @@ public abstract class PostgresTestBase {
     }
 
     /**
+     * Testler aynı Redis'i ve aynı IP'yi (127.0.0.1) paylaşır; IP başına hız sınırı kovaları bir testten
+     * ötekine taşınınca (örn. dakikada 10 "şifremi unuttum") sıraya/zamanlamaya bağlı rastgele 429'lar çıkıyordu.
+     * Her testten önce Redis sıfırlanır.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void resetRateLimitBuckets() throws java.io.IOException {
+        try (var socket = new java.net.Socket(REDIS.getHost(), REDIS.getMappedPort(6379))) {
+            socket.getOutputStream().write("*1\r\n$8\r\nFLUSHALL\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            socket.getOutputStream().flush();
+            socket.getInputStream().readNBytes(5); // +OK\r\n
+        }
+    }
+
+    /**
      * ops/db/01-app-role.sh ile aynı yetkileri verir. Flyway'den önce çalıştığı için
      * "default privileges" sayesinde göçlerin oluşturacağı tablolar da otomatik yetkilenir.
      */
