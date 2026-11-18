@@ -99,3 +99,9 @@ Render'ı hem Supabase'i (7 gün hareketsizlikte duraklar) uyanık tutar.
   Yeni veritabanı açıp `APP_REDIS_URL`'yi güncelleyin; adres `rediss://` (TLS) olmalı.
 - **Cloudflare `package.json` bulunamadı:** Root directory `web` olmalı, başında `/` olmadan.
 - **Frontend açılıyor ama istekler engelleniyor:** Render'da `APP_ALLOWED_ORIGINS` eksik/yanlış.
+- **E-posta kapalı olduğu için** demoda *şifre sıfırlama* ve *e-posta doğrulama* çalışmaz (bağlantılar
+  gönderilmez). Demo hesaplarının şifresi README'deki tablodadır; unutulursa `ops/demo/seed-demo.sh`
+  yeniden çalıştırılır. Personel davetinde bağlantı e-postayla gitmez, panelde **kopyalanabilir
+  davet bağlantısı** olarak gösterilir. Gerçek e-posta için [`gmail-email.md`](gmail-email.md).
+- HSTS `render.yaml` ile açıktır (`APP_HSTS_MAX_AGE_SECONDS=31536000`). Refresh token'lar tek
+  kullanımlıktır; çalıntı/yeniden kullanım tespitinde hesabın tüm oturumları kapatılır.
