@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { AuthScreen } from '../screens/AuthScreen';
 import { StaffScreen } from '../screens/StaffScreen';
@@ -99,8 +99,31 @@ function NotFound({ insidePanel = false }: { insidePanel?: boolean }) {
   </Card></section>;
 }
 
+const TITLES: [string, string][] = [
+  ['/app/services', 'Hizmetler'], ['/app/staff', 'Berberler'], ['/app/working-hours', 'Çalışma saatleri'],
+  ['/app/appointments', 'Randevular'], ['/app/booking-requests', 'Randevu talepleri'],
+  ['/app/booking-settings', 'Randevu ayarları'], ['/app/booking-link', 'Randevu bağlantısı'],
+  ['/app/shop-design', 'Dükkân tasarımı'], ['/app/customers', 'Müşteriler'], ['/app/reports', 'Raporlar'],
+  ['/app/audit-log', 'Denetim kaydı'], ['/app/onboarding', 'Kurulum'], ['/app/plan', 'Plan'],
+  ['/app/account', 'Hesap'], ['/app/notifications', 'Bildirimler'], ['/app/my-schedule', 'Programım'],
+  ['/app/support', 'Destek'], ['/app', 'Çalışma alanı'], ['/book/', 'Randevu al'], ['/customer', 'Hesabım'],
+  ['/login', 'Giriş'], ['/tanitim', 'Tanıtım'], ['/demo', 'Demo'], ['/kvkk', 'KVKK aydınlatma metni'],
+  ['/sifremi-unuttum', 'Şifremi unuttum'], ['/sifre-sifirla', 'Şifre sıfırla'],
+  ['/eposta-dogrula', 'E-posta doğrula'], ['/personel-daveti', 'Personel daveti'], ['/musteri', 'Müşteri hesabı'],
+];
+
+/** Sayfa başına belge başlığı (sekme, geçmiş, paylaşım). Daha uzun önek önce eşleşir. */
+function RouteTitle() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const hit = TITLES.find(([prefix]) => pathname === prefix || pathname.startsWith(prefix.endsWith('/') ? prefix : prefix + '/'));
+    document.title = hit ? `${hit[1]} · Tenant OS` : 'Tenant OS — Berber randevu platformu';
+  }, [pathname]);
+  return null;
+}
+
 export function AppRoutes() {
-  return <Routes>
+  return <><RouteTitle /><Routes>
     <Route path="/" element={<Navigate to="/app" replace />} />
     <Route path="/login" element={<LoginRoute />} />
     <Route path="/tanitim" element={<SalesScreen />} />
@@ -151,5 +174,5 @@ export function AppRoutes() {
       </Route>
     </Route>
     <Route path="*" element={<NotFound />} />
-  </Routes>;
+  </Routes></>;
 }

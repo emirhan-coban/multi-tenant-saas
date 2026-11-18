@@ -64,7 +64,9 @@ public class CalismaSaatiService {
         var replacement = request.days().stream().filter(day -> !day.closed())
                 .sorted(Comparator.comparing(CalismaSaatiDtos.GunRequest::dayOfWeek))
                 .map(day -> row(person, day.dayOfWeek(), day.startTime(), day.endTime())).toList();
-        return hours.saveAllAndFlush(replacement).stream().map(this::response).toList();
+        var saved = hours.saveAllAndFlush(replacement).stream().map(this::response).toList();
+        operations.audit(user, "WORKING_HOURS_REPLACED", "staff", person.getId(), java.util.Map.of("openDays", saved.size()));
+        return saved;
     }
 
     @Transactional(readOnly = true)

@@ -125,7 +125,7 @@ public class AuthService {
         return new AuthResponse(token, refreshToken, membershipInfos);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(noRollbackFor = ApiException.class)
     public AuthResponse refresh(String refreshToken) {
         final io.jsonwebtoken.Claims claims;
         final java.util.UUID userId;
@@ -137,7 +137,7 @@ public class AuthService {
         } catch (io.jsonwebtoken.JwtException | IllegalArgumentException ex) {
             throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
         }
-        if (sessions.staffTokenRevoked(userId, claims))
+        if (sessions.staffTokenRevoked(userId, claims) || !sessions.consumeRefresh(claims, "STAFF", userId))
             throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
         var memberships = membershipRepository.findByUserIdAndActiveTrue(userId);
         var membership = memberships.stream()

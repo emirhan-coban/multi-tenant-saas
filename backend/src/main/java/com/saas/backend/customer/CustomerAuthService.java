@@ -66,7 +66,7 @@ public class CustomerAuthService {
         return response(account);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(noRollbackFor = ApiException.class)
     public CustomerAuthDtos.Response refresh(String refreshToken) {
         final UUID customerId;
         final io.jsonwebtoken.Claims claims;
@@ -76,7 +76,7 @@ public class CustomerAuthService {
         } catch (JwtException | IllegalArgumentException ex) {
             throw new ApiException("INVALID_CUSTOMER_REFRESH_TOKEN", "Müşteri oturumu yenilenemedi");
         }
-        if (sessions.customerTokenRevoked(customerId, claims))
+        if (sessions.customerTokenRevoked(customerId, claims) || !sessions.consumeRefresh(claims, "CUSTOMER", customerId))
             throw new ApiException("INVALID_CUSTOMER_REFRESH_TOKEN", "Müşteri oturumu yenilenemedi");
         var account = accounts.findById(customerId)
                 .filter(CustomerAccount::isActive)

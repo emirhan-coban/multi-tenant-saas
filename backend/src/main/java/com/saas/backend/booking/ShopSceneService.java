@@ -26,7 +26,11 @@ public class ShopSceneService {
     private final EntityManager em;
     private final com.saas.backend.flags.FeatureFlagService flags;
 
-    public ShopSceneService(EntityManager em, com.saas.backend.flags.FeatureFlagService flags) {
+    private final com.saas.backend.operations.OperationsService operations;
+
+    public ShopSceneService(EntityManager em, com.saas.backend.flags.FeatureFlagService flags,
+                            com.saas.backend.operations.OperationsService operations) {
+        this.operations = operations;
         this.em = em;
         this.flags = flags;
     }
@@ -74,6 +78,7 @@ public class ShopSceneService {
         UUID draft = draftId(user.tenantId());
         assertRevision(draft, command.revision());
         publishDraft(user, draft);
+        operations.audit(user, "SHOP_SCENE_PUBLISHED", "shop_scene", draft, java.util.Map.of());
         ensureDraft(user);
         return state(user.tenantId());
     }
@@ -87,6 +92,8 @@ public class ShopSceneService {
         em.createNativeQuery("delete from shop_scenes where id=:id").setParameter("id", currentDraft).executeUpdate();
         UUID replacement = cloneScene(user, (UUID) target[0], nextVersion(user.tenantId()), "DRAFT");
         publishDraft(user, replacement);
+        operations.audit(user, "SHOP_SCENE_ROLLED_BACK", "shop_scene", replacement,
+                java.util.Map.of("targetVersion", command.targetVersion()));
         ensureDraft(user);
         return state(user.tenantId());
     }

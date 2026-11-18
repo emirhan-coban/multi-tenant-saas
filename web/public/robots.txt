@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /customer
+
+Sitemap: https://multi-tenant-saas.emirhancob4n.workers.dev/sitemap.xml

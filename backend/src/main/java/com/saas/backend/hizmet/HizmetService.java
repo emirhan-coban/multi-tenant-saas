@@ -35,6 +35,8 @@ public class HizmetService {
         hizmet.setBufferMin(request.bufferMin() != null ? request.bufferMin() : 0);
 
         hizmetRepository.save(hizmet);
+        operations.audit(user, "SERVICE_CREATED", "service", hizmet.getId(),
+            java.util.Map.of("name", request.name(), "price", request.price()));
 
         return toResponse(hizmet);
     }
