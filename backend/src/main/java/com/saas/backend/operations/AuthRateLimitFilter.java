@@ -11,9 +11,11 @@ import java.io.IOException;
 
 public class AuthRateLimitFilter extends OncePerRequestFilter {
     private final TenantRateLimiter limiter;
+    private final ClientIp clientIp;
 
-    public AuthRateLimitFilter(TenantRateLimiter limiter) {
+    public AuthRateLimitFilter(TenantRateLimiter limiter, ClientIp clientIp) {
         this.limiter = limiter;
+        this.clientIp = clientIp;
     }
 
     @Override
@@ -26,7 +28,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String scope = scope(request);
         try {
-            ConsumptionProbe probe = limiter.consumeAuth(scope, request.getRemoteAddr());
+            ConsumptionProbe probe = limiter.consumeAuth(scope, clientIp.resolve(request));
             if (!probe.isConsumed()) {
                 reject(response, 429, "AUTH_RATE_LIMIT_EXCEEDED",
                         Math.max(1, (probe.getNanosToWaitForRefill() + 999_999_999L) / 1_000_000_000L));

@@ -57,9 +57,10 @@ management:
 
 server:
   port: 8080
-  # Production'da backend doğrudan yayınlanmaz; yalnızca nginx'in temizlediği
-  # X-Forwarded-* başlıkları güvenilir istemci adresi olarak kullanılır.
-  forward-headers-strategy: framework
+  # İstemcinin X-Forwarded-* başlıklarına otomatik güvenilmez (sahte IP ile hız sınırı aşılırdı).
+  # İstemci adresi operations/ClientIp ile app.security.client-ip-header veya
+  # app.security.trusted-proxy-hops üzerinden güvenli çözülür.
+  forward-headers-strategy: none
 
 app:
   support:
@@ -86,6 +87,10 @@ app:
     allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173,http://localhost:3000}
     content-security-policy: ${APP_CONTENT_SECURITY_POLICY:default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'}
     hsts-max-age-seconds: ${APP_HSTS_MAX_AGE_SECONDS:0}
+    # Ağ geçidinin yazdığı güvenilir istemci IP başlığı (örn. CF-Connecting-IP) veya nginx gibi
+    # kendi proxy'mizin sayısı (X-Forwarded-For sağdan N. girdi). İkisi de boşsa doğrudan bağlantı adresi.
+    client-ip-header: ${APP_CLIENT_IP_HEADER:}
+    trusted-proxy-hops: ${APP_TRUSTED_PROXY_HOPS:0}
     # Üretimde false: eksik/zayıf sır varsa uygulama açılmaz.
     dev-secrets-allowed: ${APP_SECURITY_DEV_SECRETS_ALLOWED:true}
 
