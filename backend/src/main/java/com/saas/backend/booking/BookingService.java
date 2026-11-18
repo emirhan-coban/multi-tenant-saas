@@ -38,6 +38,7 @@ public class BookingService {
     private final InAppNotificationService notifications;
     private final com.saas.backend.ops.OpsMetrics metrics;
     private final MusaitlikHesaplayici calculator = new MusaitlikHesaplayici();
+    private final com.saas.backend.operations.ClientIp clientIp;
 
     public BookingService(EntityManager em, AppointmentRepository appointments,
                           CustomerAccountRepository customers, BookingRequestRateLimiter rateLimiter,
@@ -47,7 +48,9 @@ public class BookingService {
                           BookingAppointmentFactory appointmentFactory,
                           com.saas.backend.flags.FeatureFlagService flags,
                           InAppNotificationService notifications,
-                          com.saas.backend.ops.OpsMetrics metrics) {
+                          com.saas.backend.ops.OpsMetrics metrics,
+                          com.saas.backend.operations.ClientIp clientIp) {
+        this.clientIp = clientIp;
         this.em = em;
         this.appointments = appointments;
         this.customers = customers;
@@ -107,7 +110,7 @@ public class BookingService {
             return response(previous, tenant.slug(), trust(previous.getCustomerId()).getTrustState());
         }
 
-        rateLimiter.check(tenant.id(), http.getRemoteAddr());
+        rateLimiter.check(tenant.id(), clientIp.resolve(http));
         var customer = lockActiveCustomer(accountId);
         var tenantCustomer = tenantCustomer(tenant.id(), accountId);
         lockCustomer(tenantCustomer);

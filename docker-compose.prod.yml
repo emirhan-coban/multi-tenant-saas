@@ -53,6 +53,8 @@ services:
       APP_JWT_SECRET: ${APP_JWT_SECRET:?zorunlu}
       APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:?zorunlu}
       APP_HSTS_MAX_AGE_SECONDS: ${APP_HSTS_MAX_AGE_SECONDS:-31536000}
+      # nginx istemci adresini X-Forwarded-For olarak yazar (tek atlama); istemcinin kendi başlığına güvenilmez.
+      APP_TRUSTED_PROXY_HOPS: "1"
       APP_OPS_METRICS_TOKEN: ${APP_OPS_METRICS_TOKEN:?zorunlu}
       APP_PUSH_VAPID_PUBLIC_KEY: ${APP_PUSH_VAPID_PUBLIC_KEY:?zorunlu}
       APP_PUSH_VAPID_PRIVATE_KEY: ${APP_PUSH_VAPID_PRIVATE_KEY:?zorunlu}

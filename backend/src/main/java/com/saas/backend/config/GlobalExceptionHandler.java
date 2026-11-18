@@ -7,6 +7,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
 import java.util.HashMap;
 import java.util.Map;
 import com.saas.backend.booking.BookingRateLimitException;
@@ -14,6 +21,7 @@ import com.saas.backend.booking.BookingRateLimitUnavailableException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger LOG = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private final com.saas.backend.ops.OpsMetrics metrics;
 
     public GlobalExceptionHandler(com.saas.backend.ops.OpsMetrics metrics) {
@@ -96,5 +104,43 @@ public class GlobalExceptionHandler {
         body.put("details", fieldErrors);
 
         return ResponseEntity.badRequest().body(body);
+    }
+
+    /** Geçersiz tür (örn. UUID/tarih biçimi) istemci hatasıdır: 400. */
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, jakarta.validation.ConstraintViolationException.class})
+    public ResponseEntity<Map<String, Object>> badArgument(Exception ex) {
+        String message = ex instanceof MethodArgumentTypeMismatchException mismatch
+                ? "Geçersiz değer: " + mismatch.getName() : "Girdi doğrulama hatası";
+        return ResponseEntity.badRequest().body(Map.of("code", "VALIDATION_ERROR", "message", message, "details", Map.of()));
+    }
+
+    /**
+     * Kalan tüm istisnalar. Framework'ün kendi HTTP hataları (eksik parametre/başlık, yanlış metot,
+     * desteklenmeyen içerik türü, bulunamayan kaynak) gerçek durum koduyla döner; güvenlik istisnaları
+     * Spring Security'ye bırakılır; gerisi loglanan genel bir 500'dür. Böylece hiçbir hata 401 gibi maskelenmez.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> fallback(Exception ex) throws Exception {
+        if (ex instanceof AccessDeniedException || ex instanceof AuthenticationException) throw ex;
+        if (ex instanceof ErrorResponse response && response.getStatusCode().is4xxClientError()) {
+            int status = response.getStatusCode().value();
+            String code = switch (status) {
+                case 404 -> "NOT_FOUND";
+                case 405 -> "METHOD_NOT_ALLOWED";
+                case 415 -> "UNSUPPORTED_MEDIA_TYPE";
+                default -> "VALIDATION_ERROR";
+            };
+            String message = switch (status) {
+                case 404 -> "Kaynak bulunamadı.";
+                case 405 -> "Bu yöntem desteklenmiyor.";
+                case 415 -> "Desteklenmeyen içerik türü.";
+                default -> "İstek geçersiz: eksik veya hatalı parametre/başlık.";
+            };
+            return ResponseEntity.status(status).body(Map.of("code", code, "message", message, "details", Map.of()));
+        }
+        LOG.error("Beklenmeyen hata", ex);
+        metrics.apiError("INTERNAL_ERROR", 500);
+        return ResponseEntity.status(500).body(Map.of("code", "INTERNAL_ERROR",
+                "message", "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.", "details", Map.of()));
     }
 }
