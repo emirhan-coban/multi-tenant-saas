@@ -585,3 +585,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid #658031; outline-offs
 .demo-page .sales-grid button { min-height:120px; display:grid; place-content:center; gap:.4rem; border:1px solid var(--line,#ddd); border-radius:14px; background:var(--surface,#fff); font:inherit; cursor:pointer; }
 .demo-slots { display:flex; flex-wrap:wrap; gap:.75rem; margin:1rem 0; }.demo-slots button { padding:.8rem 1.2rem; }
 @media(max-width:700px){.sales-grid{grid-template-columns:1fr}.sales-nav{align-items:flex-start}.sales-page footer{flex-direction:column}}
+
+/* Personel ve sahne editörü: yeni eylem satırları */
+.page-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.empty-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
+.chair-editor-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 10px; }

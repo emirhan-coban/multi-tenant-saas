@@ -5,9 +5,11 @@ export type CurrentUser = { userId: string; tenantId: string; role: Role };
 export type BookingLink = { tenantId: string; tenantName: string; tenantSlug: string; timezone: string };
 export type ServiceInput = { name: string; durationMin: number; price: number; bufferMin?: number };
 export type Service = ServiceInput & { id: string; bufferMin: number };
-export type Staff = { id: string; displayName: string; active: boolean };
+export type Staff = { id: string; displayName: string; active: boolean; self?: boolean };
+export type PendingInvite = { id: string; email: string; displayName: string; createdAt: string; expiresAt: string; expired: boolean };
 export type InviteInput = { email: string; displayName: string };
-export type InviteResult = { personelId: string; email: string; invitationSent: boolean };
+/** inviteLink yalnızca e-posta gerçek gönderimde değilken (demo/test) dolu gelir. */
+export type InviteResult = { personelId: string; email: string; invitationSent: boolean; inviteLink?: string | null };
 export type WorkingHours = {
   id: string;
   personelId: string;

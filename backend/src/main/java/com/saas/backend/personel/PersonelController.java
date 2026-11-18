@@ -33,8 +33,20 @@ public class PersonelController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','STAFF')")
-    public List<PersonelDtos.PersonelResponse> listele() {
-        return personelService.listele();
+    public List<PersonelDtos.PersonelResponse> listele(@AuthenticationPrincipal AuthenticatedUser user) {
+        return personelService.listele(user);
+    }
+
+    @PostMapping("/self")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public PersonelDtos.PersonelResponse kendiniEkle(@AuthenticationPrincipal AuthenticatedUser user) {
+        return personelService.kendiniEkle(user);
+    }
+
+    @GetMapping("/invitations")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public List<PersonelDtos.BekleyenDavet> bekleyenDavetler(@AuthenticationPrincipal AuthenticatedUser user) {
+        return personelService.bekleyenDavetler(user);
     }
 
     @DeleteMapping("/{personelId}/access")

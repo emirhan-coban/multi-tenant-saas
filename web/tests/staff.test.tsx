@@ -7,7 +7,7 @@ import { TenantProvider } from '../src/store/tenant';
 import { StaffScreen } from '../src/screens/StaffScreen';
 import * as api from '../src/api/management';
 import type { InviteResult, Staff } from '../src/api/types';
-vi.mock('../src/api/management', () => ({ getStaff: vi.fn(), inviteStaff: vi.fn() }));
+vi.mock('../src/api/management', () => ({ getStaff: vi.fn(), inviteStaff: vi.fn(), addSelfAsStaff: vi.fn(), getPendingInvites: vi.fn() }));
 const person = { id: 'one', displayName: 'Deniz Yılmaz', active: true };
 const result: InviteResult = { personelId: 'one', email: 'deniz@example.com', invitationSent: true };
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: Error) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
@@ -26,7 +26,7 @@ beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
 });
-beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); sessionStorage.clear(); vi.mocked(api.getStaff).mockResolvedValue([]); });
+beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); sessionStorage.clear(); vi.mocked(api.getStaff).mockResolvedValue([]); vi.mocked(api.getPendingInvites).mockResolvedValue([]); });
 afterEach(cleanup);
 
 test('new staff refreshes list and exposes no credential in cache or storage', async () => {
@@ -102,4 +102,34 @@ test('successful invite result remains available if list refresh fails', async (
   await screen.findByRole('alert');
   expect(screen.getByText('deniz@example.com')).toBeTruthy();
   expect(api.inviteStaff).toHaveBeenCalledOnce();
+});
+
+test('owner can add self as a barber and the button disappears', async () => {
+  const self: Staff = { id: 'me', displayName: 'Ada Usta', active: true, self: true };
+  vi.mocked(api.addSelfAsStaff).mockResolvedValue(self);
+  setup(); await screen.findByText('Henüz personel eklemediniz');
+  vi.mocked(api.getStaff).mockResolvedValue([self]);
+  fireEvent.click(screen.getAllByRole('button', { name: 'Ben de berberim' })[0]);
+  await screen.findByText('Ada Usta');
+  expect(api.addSelfAsStaff).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Ben de berberim' })).toBeNull());
+});
+
+test('when e-mail delivery is off the owner gets a copyable invitation link', async () => {
+  vi.mocked(api.inviteStaff).mockResolvedValue({ ...result, inviteLink: 'https://app.example/personel-daveti?token=abc' });
+  setup(); await screen.findByText('Henüz personel eklemediniz');
+  fill(); fireEvent.click(screen.getByRole('button', { name: 'Personel oluştur' }));
+  await screen.findByRole('heading', { name: 'Davet bağlantısı hazır' });
+  expect((screen.getByLabelText('Davet bağlantısı') as HTMLInputElement).value).toBe('https://app.example/personel-daveti?token=abc');
+  expect(screen.getByRole('button', { name: 'Bağlantıyı kopyala' })).toBeTruthy();
+});
+
+test('pending invitations are listed until accepted', async () => {
+  vi.mocked(api.getPendingInvites).mockResolvedValue([
+    { id: 'i1', email: 'yeni@example.com', displayName: 'Yeni Berber', createdAt: '2030-01-01T10:00:00Z', expiresAt: '2030-01-03T10:00:00Z', expired: false },
+    { id: 'i2', email: 'eski@example.com', displayName: 'Eski Davet', createdAt: '2020-01-01T10:00:00Z', expiresAt: '2020-01-03T10:00:00Z', expired: true },
+  ]);
+  setup(); await screen.findByRole('region', { name: 'Bekleyen davetler' });
+  expect(screen.getByText('Kabul bekleniyor')).toBeTruthy();
+  expect(screen.getByText('Süresi doldu')).toBeTruthy();
 });

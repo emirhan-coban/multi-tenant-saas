@@ -4,6 +4,7 @@ export const queryKeys = {
   bookingLink: (tenantId: string) => ['tenant', tenantId, 'booking-link'] as const,
   services: (tenantId: string) => ['tenant', tenantId, 'services'] as const,
   staff: (tenantId: string) => ['tenant', tenantId, 'staff'] as const,
+  pendingInvites: (tenantId: string) => ['tenant', tenantId, 'staff', 'invitations'] as const,
   workingHours: (tenantId: string, personelId: string) =>
     ['tenant', tenantId, 'working-hours', personelId] as const,
   bookingRequests: (tenantId: string, status: string) =>
