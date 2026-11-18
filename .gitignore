@@ -37,3 +37,6 @@ postman/
 
 # Dağıtım için üretilen yerel sır dosyası
 .env.render
+
+# Cloudflare wrangler yerel durum klasörü
+.wrangler/

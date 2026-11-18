@@ -105,7 +105,18 @@ async function staticResponse(request) {
 }
 
 self.addEventListener('install', function (event) {
-  event.waitUntil(caches.open(SHELL_CACHE).then(function (cache) { return cache.addAll(PRECACHE); }));
+  // Yönlendirilmiş (redirected) yanıt gezinme isteğine verilemez; önbelleğe temiz bir kopya yazılır.
+  event.waitUntil(caches.open(SHELL_CACHE).then(function (cache) {
+    return Promise.all(PRECACHE.map(function (url) {
+      return fetch(url).then(function (response) {
+        if (!response || !response.ok) throw new Error('precache ' + url + ' ' + (response && response.status));
+        if (!response.redirected) return cache.put(url, response);
+        return response.arrayBuffer().then(function (body) {
+          return cache.put(url, new Response(body, { status: 200, statusText: 'OK', headers: response.headers }));
+        });
+      });
+    }));
+  }));
 });
 
 self.addEventListener('activate', function (event) {

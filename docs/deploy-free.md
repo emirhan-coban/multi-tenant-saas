@@ -52,6 +52,12 @@ bilinmeyen yolları `index.html`'e düşürür (SPA yönlendirmesi).
 5. Render'daki `APP_ALLOWED_ORIGINS` ve `APP_PUBLIC_BASE_URL` değerini bu adresle eşitleyin
    (https, sonda `/` yok); aksi halde tarayıcı CORS nedeniyle API'ye erişemez.
 
+> **Güvenlik başlıkları ve CSP:** `web/public/_headers` Cloudflare'de güvenlik başlıklarını (CSP, `X-Frame-Options`,
+> `nosniff`, `Referrer-Policy`, `Permissions-Policy`) ve uzun ömürlü önbelleği (`/assets/*`, `/models/*`) ayarlar.
+> CSP'nin `connect-src` kısmı API adresini içerir (`https://*.onrender.com`); backend'i başka bir alan adına
+> taşırsanız bu dosyayı güncelleyin, aksi halde tarayıcı API isteklerini engeller. Yazı tipleri ve 3D çözücüleri
+> kendi paketimizden sunulur, dışarıdan betik/stil yüklenmez.
+
 ## 5. Demo verisi
 
 ```bash
