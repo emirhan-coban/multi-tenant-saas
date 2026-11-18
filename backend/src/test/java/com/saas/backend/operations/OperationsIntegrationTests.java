@@ -111,15 +111,15 @@ class OperationsIntegrationTests extends PostgresTestBase {
     @Test void redisAtomicCounterAcrossParallelConsumers() throws Exception {
         try(var pool=Executors.newFixedThreadPool(20)) {
             var tasks=new ArrayList<Future<Boolean>>();
-            for(int i=0;i<100;i++)tasks.add(pool.submit(()->limiter.consume(tenant,false).isConsumed()));
+            for(int i=0;i<200;i++)tasks.add(pool.submit(()->limiter.consume(tenant,false).isConsumed()));
             int ok=0;for(var f:tasks)if(f.get(20,TimeUnit.SECONDS))ok++;
-            assertEquals(60,ok);
+            assertEquals(120,ok);
         }
         assertFalse(limiter.consume(tenant,false).isConsumed());
         assertTrue(limiter.consume(UUID.randomUUID(),false).isConsumed());
     }
-    @Test void proAllowsThreeHundredRequests() {
-        for(int i=0;i<300;i++)assertTrue(limiter.consume(tenant,true).isConsumed());
+    @Test void proAllowsSixHundredRequests() {
+        for(int i=0;i<600;i++)assertTrue(limiter.consume(tenant,true).isConsumed());
         assertFalse(limiter.consume(tenant,true).isConsumed());
     }
     @Test void proCanCreateBeyondMonthlyFreeQuota() {
@@ -140,7 +140,7 @@ class OperationsIntegrationTests extends PostgresTestBase {
         } finally {org.springframework.security.core.context.SecurityContextHolder.clearContext();}
     }
     @Test void http429IncludesRetryAfterAndTrace() throws Exception {
-        for(int i=0;i<60;i++)limiter.consume(tenant,false);
+        for(int i=0;i<120;i++)limiter.consume(tenant,false);
         var response=get("/api/usage","OWNER");
         assertEquals(429,response.statusCode());assertTrue(response.body().contains("RATE_LIMIT_EXCEEDED"));
         assertTrue(Integer.parseInt(response.headers().firstValue("Retry-After").orElseThrow())>0);

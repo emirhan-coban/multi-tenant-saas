@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { authenticate, resetSessionTransport, restoreSession, subscribeSession } from '../api/client';
+import { authenticate, resetSessionTransport, restoreSession, subscribeSession, switchTenantRequest } from '../api/client';
 import type { AuthData } from '../api/types';
 import { clearSessionQueries } from '../query/client';
 
@@ -10,6 +10,7 @@ type AuthContextValue = {
   login: (values: object) => Promise<void>;
   register: (values: object) => Promise<void>;
   logout: () => void;
+  switchTenant: (tenantId: string) => Promise<void>;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -41,8 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await authenticate(path, values);
     setSession(data);
   }
+  async function switchTenant(tenantId: string) {
+    const data = await switchTenantRequest(tenantId);
+    clearSessionQueries(queryClient);
+    setSession(data);
+  }
   return <AuthContext.Provider value={{
-    ready, session, logout,
+    ready, session, logout, switchTenant,
     login: values => signIn('/api/auth/login', values),
     register: values => signIn('/api/auth/register', values),
   }}>{children}</AuthContext.Provider>;

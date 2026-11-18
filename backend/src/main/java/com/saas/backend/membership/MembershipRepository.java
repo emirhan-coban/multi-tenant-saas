@@ -7,5 +7,8 @@ import java.util.UUID;
 
 public interface MembershipRepository extends JpaRepository<Membership, UUID> {
     List<Membership> findByUserIdAndActiveTrue(UUID userId);
+
+    /** Deterministik sıra: en eski üyelik önce (giriş varsayılanı ve arayüz listesi). */
+    List<Membership> findByUserIdAndActiveTrueOrderByCreatedAtAscIdAsc(UUID userId);
     Optional<Membership> findByUserIdAndTenantId(UUID userId, UUID tenantId);
 }

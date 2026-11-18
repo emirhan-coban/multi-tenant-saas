@@ -61,7 +61,7 @@ public class GlobalExceptionHandler {
             case "NOT_FOUND", "CUSTOMER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "PUSH_NOT_CONFIGURED", "RATE_LIMIT_UNAVAILABLE" -> HttpStatus.SERVICE_UNAVAILABLE;
             case "INVALID_CREDENTIALS", "INVALID_REFRESH_TOKEN", "INVALID_CUSTOMER_CREDENTIALS", "INVALID_CUSTOMER_REFRESH_TOKEN" -> HttpStatus.UNAUTHORIZED;
-            case "NO_TENANT", "QUOTA_EXCEEDED", "CUSTOMER_BLOCKED" -> HttpStatus.FORBIDDEN;
+            case "NO_TENANT", "NOT_A_MEMBER", "QUOTA_EXCEEDED", "CUSTOMER_BLOCKED" -> HttpStatus.FORBIDDEN;
             // Faz 9: hesap güvenliği uçlarında saatlik istek sınırı.
             case "TOO_MANY_REQUESTS" -> HttpStatus.TOO_MANY_REQUESTS;
             default -> HttpStatus.BAD_REQUEST;

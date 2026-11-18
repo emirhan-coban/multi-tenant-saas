@@ -111,6 +111,29 @@ class AuthTokenIntegrationTests extends PostgresTestBase {
     }
 
     @Test
+    void switchTenantIssuesTokensForAnotherMembershipOnly() throws Exception {
+        var other = UUID.randomUUID();
+        var stranger = UUID.randomUUID();
+        jdbc.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", other, "Ikinci Berber", other.toString(), "Europe/Istanbul");
+        jdbc.update("insert into tenants(id,name,slug,timezone) values (?,?,?,?)", stranger, "Yabanci Berber", stranger.toString(), "Europe/Istanbul");
+        jdbc.update("insert into memberships(user_id,tenant_id,role) values (?,?,'MANAGER')", userId, other);
+        var token = jwt.generateAccessToken(userId, tenantId, "OWNER");
+        java.util.function.Function<UUID, HttpResponse<String>> call = target -> {
+            try {
+                return http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/me/switch-tenant"))
+                        .header("Authorization", "Bearer " + token).header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"tenantId\":\"" + target + "\"}")).build(), HttpResponse.BodyHandlers.ofString());
+            } catch (Exception e) { throw new RuntimeException(e); }
+        };
+        var ok = call.apply(other);
+        assertEquals(200, ok.statusCode(), ok.body());
+        var me = getMe(json.readTree(ok.body()).get("accessToken").asString());
+        assertEquals(other.toString(), json.readTree(me.body()).get("tenantId").asString());
+        assertEquals(2, json.readTree(ok.body()).get("memberships").size());
+        assertEquals(403, call.apply(stranger).statusCode());
+    }
+
+    @Test
     void staffRoleGets403BeforeRequestBodyValidation() throws Exception {
         jdbc.update("update memberships set role='STAFF' where user_id=?", userId);
         var token = jwt.generateAccessToken(userId, tenantId, "STAFF");

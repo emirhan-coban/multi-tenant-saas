@@ -111,6 +111,7 @@ public class BookingService {
         }
 
         rateLimiter.check(tenant.id(), clientIp.resolve(http));
+        rateLimiter.checkAccount(tenant.id(), accountId);
         var customer = lockActiveCustomer(accountId);
         var tenantCustomer = tenantCustomer(tenant.id(), accountId);
         lockCustomer(tenantCustomer);

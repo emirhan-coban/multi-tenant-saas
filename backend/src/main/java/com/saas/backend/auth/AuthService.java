@@ -102,7 +102,7 @@ public class AuthService {
             throw new ApiException("INVALID_CREDENTIALS", "E-posta veya şifre hatalı");
         }
 
-        List<Membership> memberships = membershipRepository.findByUserIdAndActiveTrue(user.getId());
+        List<Membership> memberships = membershipRepository.findByUserIdAndActiveTrueOrderByCreatedAtAscIdAsc(user.getId());
 
         if (memberships.isEmpty()) {
             throw new ApiException("NO_TENANT", "Bu kullanıcıya ait işletme bulunamadı");
@@ -125,6 +125,23 @@ public class AuthService {
         return new AuthResponse(token, refreshToken, membershipInfos);
     }
 
+    /** Çok işletmeli kullanıcı için: oturum açık kalırken başka bir işletmeye geçer (yeni token çifti). */
+    @Transactional
+    public AuthResponse switchTenant(java.util.UUID userId, java.util.UUID tenantId) {
+        var memberships = membershipRepository.findByUserIdAndActiveTrueOrderByCreatedAtAscIdAsc(userId);
+        var target = memberships.stream()
+            .filter(item -> item.getTenant().getId().equals(tenantId))
+            .findFirst()
+            .orElseThrow(() -> new ApiException("NOT_A_MEMBER", "Bu işletmeye üyeliğiniz yok"));
+        long sessionVersion = sessions.staffSessionVersion(userId);
+        String accessToken = jwtService.generateAccessToken(userId, tenantId, target.getRole(), sessionVersion);
+        String refreshToken = jwtService.generateRefreshToken(userId, tenantId, target.getRole(), sessionVersion);
+        var infos = memberships.stream()
+            .map(item -> new AuthResponse.MembershipInfo(item.getTenant().getId(), tenantName(item), item.getRole()))
+            .toList();
+        return new AuthResponse(accessToken, refreshToken, infos);
+    }
+
     @Transactional(noRollbackFor = ApiException.class)
     public AuthResponse refresh(String refreshToken) {
         final io.jsonwebtoken.Claims claims;
@@ -139,7 +156,7 @@ public class AuthService {
         }
         if (sessions.staffTokenRevoked(userId, claims) || !sessions.consumeRefresh(claims, "STAFF", userId))
             throw new ApiException("INVALID_REFRESH_TOKEN", "Oturum yenilenemedi");
-        var memberships = membershipRepository.findByUserIdAndActiveTrue(userId);
+        var memberships = membershipRepository.findByUserIdAndActiveTrueOrderByCreatedAtAscIdAsc(userId);
         var membership = memberships.stream()
             .filter(item -> item.getTenant().getId().equals(tenantId))
             .findFirst()

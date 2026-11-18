@@ -32,14 +32,20 @@ public class TenantRateLimiter {
         return manager;
     }
     public ConsumptionProbe consume(UUID tenant, boolean pro) {
-        int capacity=pro?300:60;
+        int capacity=pro?600:120; // işletme (ekip) başına dakikalık ortak kota
         var config=BucketConfiguration.builder().addLimit(b -> b.capacity(capacity).refillIntervally(capacity,Duration.ofMinutes(1))).build();
         return manager().getProxy("saas:rate:"+tenant+":"+capacity,()->config).tryConsumeAndReturnRemaining(1);
     }
     public ConsumptionProbe consumeBooking(UUID tenant, String address) {
-        var config=BucketConfiguration.builder().addLimit(b -> b.capacity(5).refillIntervally(5,Duration.ofHours(1))).build();
+        var config=BucketConfiguration.builder().addLimit(b -> b.capacity(20).refillIntervally(20,Duration.ofHours(1))).build(); // paylaşılan Wi-Fi/CGNAT için gevşek; asıl sınır hesap başına
         var fingerprint=UUID.nameUUIDFromBytes((address==null?"unknown":address).getBytes(StandardCharsets.UTF_8));
         return manager().getProxy("saas:booking-ip:" + tenant + ":" + fingerprint,()->config).tryConsumeAndReturnRemaining(1);
+    }
+
+    /** Müşteri hesabı başına saatlik rezervasyon denemesi (IP'den bağımsız, asıl kötüye kullanım freni). */
+    public ConsumptionProbe consumeBookingAccount(UUID tenant, UUID account) {
+        var config=BucketConfiguration.builder().addLimit(b -> b.capacity(6).refillIntervally(6,Duration.ofHours(1))).build();
+        return manager().getProxy("saas:booking-account:"+tenant+":"+account,()->config).tryConsumeAndReturnRemaining(1);
     }
 
         public ConsumptionProbe consumeAuth(String scope, String address) {
