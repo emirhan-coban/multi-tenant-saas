@@ -104,3 +104,35 @@ describe('service worker bildirimleri', () => {
     expect(worker.openWindow).toHaveBeenCalledWith('/customer/account');
   });
 });
+
+describe('service worker kurulumu', () => {
+  test('yönlendirilmiş çevrimdışı sayfa önbelleğe temiz (redirected olmayan) kopya olarak yazılır', async () => {
+    const worker = loadWorker();
+    const put = vi.fn(() => Promise.resolve());
+    const context = worker.context as unknown as Record<string, unknown>;
+    (context.caches as { open: unknown }).open = vi.fn(() => Promise.resolve({ put }));
+    context.fetch = vi.fn((url: string) => Promise.resolve(url === '/offline.html'
+      ? { ok: true, status: 200, redirected: true, headers: new Headers({ 'content-type': 'text/html' }), arrayBuffer: () => Promise.resolve(new TextEncoder().encode('<h1>offline</h1>').buffer) }
+      : { ok: true, status: 200, redirected: false, headers: new Headers() }));
+    let installed: Promise<unknown> = Promise.resolve();
+    worker.listeners.install({ waitUntil: (promise: Promise<unknown>) => { installed = promise; } });
+    await installed;
+    const offlineCall = (put.mock.calls as unknown[][]).find(call => call[0] === '/offline.html');
+    expect(offlineCall).toBeTruthy();
+    const stored = offlineCall![1] as Response;
+    expect(stored).toBeInstanceOf(Response);
+    expect(stored.redirected).toBe(false);
+    expect(stored.status).toBe(200);
+    expect(await stored.text()).toContain('offline');
+  });
+
+  test('önbelleğe alınamayan (hatalı) kabuk dosyası kurulumu başarısız kılar', async () => {
+    const worker = loadWorker();
+    const context = worker.context as unknown as Record<string, unknown>;
+    (context.caches as { open: unknown }).open = vi.fn(() => Promise.resolve({ put: vi.fn() }));
+    context.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 404, redirected: false, headers: new Headers() }));
+    let installed: Promise<unknown> = Promise.resolve();
+    worker.listeners.install({ waitUntil: (promise: Promise<unknown>) => { installed = promise; } });
+    await expect(installed).rejects.toThrow(/precache/);
+  });
+});

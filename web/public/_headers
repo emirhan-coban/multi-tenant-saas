@@ -1,0 +1,23 @@
+# Cloudflare Workers (static assets) yanıt başlıkları.
+# nginx.conf'taki üretim politikasıyla aynı mantık; API adresi connect-src'ye yazılır.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: data: https://*.onrender.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+# Hash'li derleme dosyaları değişmez: tarayıcı yeniden doğrulamadan uzun süre saklar.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 3D modeller nadiren değişir.
+/models/*
+  Cache-Control: public, max-age=2592000
+
+# Service worker ve manifest her zaman taze doğrulanır.
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache

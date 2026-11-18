@@ -36,7 +36,7 @@ function initialQuality(): Quality {
 const PLACEHOLDER_XS = [-3.25, 0, 3.25];
 
 function EmptyChair({ x, index, model, compact }: { x: number; index: number; model: string; compact: boolean }) {
-  const gltf = useGLTF(model);
+  const gltf = useGLTF(model, false, false);
   const parts = useMemo(() => {
     const list: { geometry: THREE.BufferGeometry; material: THREE.MeshStandardMaterial }[] = [];
     gltf.scene.traverse(object => {
@@ -63,7 +63,7 @@ function Chair({ chair, index, model, accentColor, selected, status, textures, q
   chair: SceneChair; index: number; model: string; accentColor: string; selected: boolean; status?: ChairStatus;
   textures: ReturnType<typeof createShopTextures>; quality: Quality; compact: boolean; onSelect: SelectHandler;
 }) {
-  const gltf = useGLTF(model);
+  const gltf = useGLTF(model, false, false);
   const invalidate = useThree(state => state.invalidate);
   const [hovered, setHovered] = useState(false);
   const [spotTarget] = useState(() => new THREE.Object3D());
@@ -435,4 +435,5 @@ function useSceneVisibility(host: React.RefObject<HTMLDivElement | null>) {
   return visible;
 }
 
-useGLTF.preload(initialQuality() === 'high' ? DESKTOP_MODEL : MOBILE_MODEL);
+// Modeller sıkıştırılmamış (Draco/Meshopt yok): drei'nin Google CDN'inden Draco çözücü ve WASM yüklemesi kapatılır.
+useGLTF.preload(initialQuality() === 'high' ? DESKTOP_MODEL : MOBILE_MODEL, false, false);

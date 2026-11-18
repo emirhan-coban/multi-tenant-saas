@@ -5,6 +5,9 @@
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./dist",
+    // /offline.html olduğu gibi servis edilir (varsayılan davranış /offline'a 307 yönlendirir; yönlendirilmiş
+    // yanıt service worker'ın çevrimdışı yedeğinde gezinme isteğine verilemez).
+    "html_handling": "none",
     "not_found_handling": "single-page-application"
   }
 }
