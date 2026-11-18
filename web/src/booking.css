@@ -316,3 +316,8 @@
   .booking-compact .bk-sheet-grip { height: 16px; }
   .booking-compact .bk-sheet-body { max-height: 40dvh; }
 }
+
+/* Çalışan yokken gösterilen soluk koltuk etiketi (tıklanamaz). */
+.scene-chair-label.is-empty { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.78); color: #5b5a56; border: 1px dashed rgba(60,60,55,.35); pointer-events: none; }
+.scene-chair-label.is-empty small { display: block; font-size: 11px; font-weight: 500; color: #6b6a66; }

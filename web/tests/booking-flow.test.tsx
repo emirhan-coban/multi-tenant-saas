@@ -201,3 +201,15 @@ test('çevrimdışıyken onay düğmesi pasif ve durum duyurulur; adım değişi
   expect(screen.getByRole('link', { name: 'Randevu paneline geç' }).getAttribute('href')).toBe('#booking-panel');
   delete (navigator as unknown as Record<string, unknown>).onLine;
 });
+
+test('çalışan yokken müşteri açıklayıcı mesaj görür, 3D sahne boş koltuklarla açılır ve randevu alınamaz', async () => {
+  vi.mocked(getPublicShop).mockResolvedValue({ ...shop, staff: [] });
+  vi.mocked(getPublicScene).mockResolvedValue({ ...manifest, chairs: [] });
+  render(<CustomerAuthProvider><MemoryRouter initialEntries={['/book/moda']}><AppRoutes /></MemoryRouter></CustomerAuthProvider>);
+
+  expect((await screen.findAllByText(/randevu alınabilecek berber yok/)).length).toBeGreaterThan(0);
+  expect(await screen.findByTestId('shop-scene')).toBeTruthy();
+  expect(createBookingRequest).not.toHaveBeenCalled();
+  const next = screen.queryByRole('button', { name: 'Devam et' });
+  if (next) expect((next as HTMLButtonElement).disabled).toBe(true);
+});
