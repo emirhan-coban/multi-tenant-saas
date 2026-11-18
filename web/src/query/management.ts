@@ -112,6 +112,22 @@ export function useInviteStaff(onResult: (result: InviteResult) => void) {
     onSuccess: () => { void client.invalidateQueries({ queryKey: queryKeys.staff(tenantId) }); },
   });
 }
+/** Sahip/yönetici kendini berber olarak ekler; koltuk sunucuda otomatik bağlanır. */
+export function useAddSelfAsStaff() {
+  const { tenantId } = useTenant();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => management.addSelfAsStaff(),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.staff(tenantId) });
+      void client.invalidateQueries({ queryKey: queryKeys.shopDesign(tenantId) });
+    },
+  });
+}
+export function usePendingInvites() {
+  const { tenantId } = useTenant();
+  return useQuery({ queryKey: queryKeys.pendingInvites(tenantId), queryFn: ({ signal }) => management.getPendingInvites(signal) });
+}
 export function useWorkingHours(personelId: string | null) {
   const { tenantId } = useTenant();
   return useQuery({

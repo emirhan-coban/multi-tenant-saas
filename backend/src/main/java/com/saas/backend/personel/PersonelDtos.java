@@ -15,7 +15,9 @@ public class PersonelDtos {
     public record DavetSonucu(
             UUID personelId,
             String email,
-            boolean invitationSent
+            boolean invitationSent,
+            /** Yalnızca e-posta gerçek gönderimde değilken (demo/test) doludur; sahip bağlantıyı elle iletir. */
+            String inviteLink
     ) {}
 
     public record DavetKabulRequest(
@@ -26,6 +28,17 @@ public class PersonelDtos {
     public record PersonelResponse(
             UUID id,
             String displayName,
-            boolean active
+            boolean active,
+            /** Giriş yapmış kullanıcının kendi personel kaydı mı (sahip "ben de berberim" demiş mi). */
+            boolean self
+    ) {}
+
+    public record BekleyenDavet(
+            UUID id,
+            String email,
+            String displayName,
+            java.time.Instant createdAt,
+            java.time.Instant expiresAt,
+            boolean expired
     ) {}
 }

@@ -30,6 +30,7 @@ public class PersonelService {
     private final com.saas.backend.operations.OperationsService operations;
     private final com.saas.backend.account.AccountTokenService tokens;
     private final com.saas.backend.account.AccountMailer mailer;
+    private final boolean liveEmail;
     private final org.springframework.jdbc.core.JdbcTemplate db;
 
     public PersonelService(
@@ -41,8 +42,11 @@ public class PersonelService {
             com.saas.backend.operations.OperationsService operations,
             com.saas.backend.account.AccountTokenService tokens,
             com.saas.backend.account.AccountMailer mailer,
-            org.springframework.jdbc.core.JdbcTemplate db
+            org.springframework.jdbc.core.JdbcTemplate db,
+            @org.springframework.beans.factory.annotation.Value("${app.email.enabled:false}") boolean emailEnabled,
+            @org.springframework.beans.factory.annotation.Value("${app.email.mode:test}") String emailMode
     ) {
+        this.liveEmail = emailEnabled && "live".equals(emailMode);
         this.personelRepository = personelRepository;
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
@@ -100,7 +104,9 @@ public class PersonelService {
         }
         operations.audit(currentUser,"STAFF_INVITED","staff",personel.getId(),java.util.Map.of());
 
-        return new PersonelDtos.DavetSonucu(personel.getId(), user.getEmail(), true);
+        // E-posta gerçekten gönderilmiyorsa (demo/test) davet hiç kabul edilemezdi: sahibe bağlantı verilir.
+        String link = liveEmail ? null : mailer.staffInvitationLink(token);
+        return new PersonelDtos.DavetSonucu(personel.getId(), user.getEmail(), true, link);
     }
 
     @Transactional
@@ -133,11 +139,54 @@ public class PersonelService {
     }
 
     @Transactional(readOnly = true)
-    public List<PersonelDtos.PersonelResponse> listele() {
+    public List<PersonelDtos.PersonelResponse> listele(AuthenticatedUser currentUser) {
         return personelRepository.findByTenantIdAndActiveTrue(com.saas.backend.config.TenantContext.get())
                 .stream()
-                .map(p -> new PersonelDtos.PersonelResponse(p.getId(), p.getDisplayName(), p.isActive()))
+                .map(p -> new PersonelDtos.PersonelResponse(p.getId(), p.getDisplayName(), p.isActive(),
+                        p.getUser() != null && p.getUser().getId().equals(currentUser.userId())))
                 .toList();
+    }
+
+    /** İşletme sahibi/yönetici kendini berber olarak ekler (tek başına çalışan berber). Tekrarlı çağrı güvenlidir. */
+    @Transactional
+    public PersonelDtos.PersonelResponse kendiniEkle(AuthenticatedUser currentUser) {
+        operations.context(currentUser.tenantId());
+        var mevcut = personelRepository.findByTenantIdAndActiveTrue(currentUser.tenantId()).stream()
+                .filter(p -> p.getUser() != null && p.getUser().getId().equals(currentUser.userId())).findFirst();
+        if (mevcut.isPresent()) {
+            var p = mevcut.get();
+            return new PersonelDtos.PersonelResponse(p.getId(), p.getDisplayName(), true, true);
+        }
+        operations.checkQuota(currentUser, "staff");
+        User user = userRepository.findById(currentUser.userId())
+                .orElseThrow(() -> new ApiException("NOT_FOUND", "Kullanıcı bulunamadı"));
+        Tenant tenant = tenantRepository.getReferenceById(currentUser.tenantId());
+        var pasif = personelRepository.findByTenantIdAndUserId(currentUser.tenantId(), user.getId());
+        Personel personel = pasif.orElseGet(Personel::new);
+        personel.setTenant(tenant);
+        personel.setUser(user);
+        if (pasif.isEmpty()) personel.setDisplayName(user.getFullName());
+        personel.setActive(true);
+        personelRepository.saveAndFlush(personel);
+        operations.audit(currentUser, "STAFF_SELF_ADDED", "staff", personel.getId(), java.util.Map.of());
+        return new PersonelDtos.PersonelResponse(personel.getId(), personel.getDisplayName(), true, true);
+    }
+
+    /** Henüz kabul edilmemiş davetler (son 48 saat geçerli). */
+    @Transactional(readOnly = true)
+    public List<PersonelDtos.BekleyenDavet> bekleyenDavetler(AuthenticatedUser currentUser) {
+        operations.context(currentUser.tenantId());
+        return db.queryForList("""
+                select i.id, u.email, s.display_name, i.created_at
+                from staff_invitations i join users u on u.id = i.user_id join staff s on s.id = i.staff_id
+                where i.tenant_id = ? and i.accepted_at is null
+                order by i.created_at desc
+                """, currentUser.tenantId()).stream().map(row -> {
+            var created = ((java.sql.Timestamp) row.get("created_at")).toInstant();
+            var expires = created.plus(java.time.Duration.ofHours(48));
+            return new PersonelDtos.BekleyenDavet((UUID) row.get("id"), (String) row.get("email"),
+                    (String) row.get("display_name"), created, expires, expires.isBefore(java.time.Instant.now()));
+        }).toList();
     }
 
     @Transactional
