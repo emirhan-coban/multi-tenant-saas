@@ -20,7 +20,7 @@ working hours, and see reports. Turkish UI, English code-level docs below
 > fake and may be reset at any time; please do not enter real personal data.
 
 <p align="center">
-  <img src="docs/media/booking-3d.jpg" alt="Interactive 3D chair picker" width="62%">
+  <img src="docs/media/booking-3d.png" alt="Interactive 3D chair picker" width="62%">
   &nbsp;
   <img src="docs/media/booking-mobile.jpg" alt="Mobile booking flow" width="22%">
 </p>

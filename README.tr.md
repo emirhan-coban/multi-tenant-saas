@@ -8,7 +8,7 @@ raporları görür.
 
 **Canlı demo:** https://multi-tenant-saas.emirhancob4n.workers.dev/book/demo-berber (ücretsiz katmanda çalışır; ilk istek 30-60 sn sürebilir)
 
-<p align="center"><img src="docs/media/booking-3d.jpg" alt="3D koltuk seçimi" width="62%"></p>
+<p align="center"><img src="docs/media/booking-3d.png" alt="3D koltuk seçimi" width="62%"></p>
 
 **Öne çıkanlar:** PostgreSQL Row Level Security ile veritabanı seviyesinde tenant izolasyonu,
 yarış koşullarına karşı güvenli rezervasyon (kilit + idempotency), güvenilir müşteri için otomatik

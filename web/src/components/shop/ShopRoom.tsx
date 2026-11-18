@@ -1,7 +1,7 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { MeshReflectorMaterial, RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
-import { random, textTexture, type createShopTextures } from './textures';
+import { ART_COUNT, random, textTexture, type ArtKey, type createShopTextures } from './textures';
 
 type Textures = ReturnType<typeof createShopTextures>;
 export type Quality = 'high' | 'low';
@@ -40,6 +40,95 @@ function Leaves({ count, height, spread, seed, color = '#3f6b3a' }: { count: num
   return <instancedMesh ref={ref} args={[geometry, undefined, count]} castShadow>
     <meshStandardMaterial side={THREE.DoubleSide} roughness={.62} />
   </instancedMesh>;
+}
+
+
+const WALL = '#3a97b3';
+const FRAME_COLORS = ['#2a1d14', '#c9a24a', '#1b1b1b', '#6b3f22', '#e8e2d4', '#a8352c'];
+
+/** Duvara asılı çerçeve: ahşap/altın kenar + passe-partout + özgün geometrik görsel. */
+function Frame({ position, size, art, textures, color, facing = 'x' }: { position: [number, number, number]; size: [number, number]; art: ArtKey; textures: Textures; color: string; facing?: 'x' | 'z' }) {
+  const [w, h] = size;
+  return <group position={position} rotation={[0, facing === 'x' ? Math.PI / 2 : 0, 0]}>
+    <mesh castShadow><boxGeometry args={[w, h, .07]} /><meshStandardMaterial color={color} roughness={.5} metalness={color === '#c9a24a' ? .6 : .1} /></mesh>
+    <mesh position={[0, 0, .04]}><planeGeometry args={[w - .1, h - .1]} /><meshStandardMaterial color="#f1ead9" roughness={.9} /></mesh>
+    <mesh position={[0, 0, .045]}><planeGeometry args={[w - .26, h - .26]} /><meshStandardMaterial map={textures[art]} roughness={.8} /></mesh>
+  </group>;
+}
+
+/** Sol duvarda "salon düzeni" çerçeve galerisi (kalite düşükse yarısı çizilir). */
+function Gallery({ x, textures, quality }: { x: number; textures: Textures; quality: Quality }) {
+  const frames = useMemo(() => {
+    const rnd = random(5);
+    // [z, y, genişlik, yükseklik]
+    const layout: [number, number, number, number][] = [
+      [-1.9, 5.7, .9, 1.15], [-.6, 6.1, 1.2, .85], [.75, 5.6, .8, 1.05], [2.0, 6.0, 1.05, 1.3], [3.35, 5.55, .85, .85], [4.6, 6.05, 1.0, 1.2],
+      [-1.5, 4.2, 1.15, 1.45], [-.15, 4.45, .85, .85], [1.15, 4.1, 1.2, 1.5], [2.5, 4.4, .8, .8], [3.7, 4.15, 1.05, 1.35], [5.0, 4.45, .85, .95],
+      [-1.9, 2.75, .8, 1.0], [-.7, 2.95, 1.0, 1.0], [.6, 2.7, .85, 1.15], [1.85, 2.95, 1.15, .9], [3.2, 2.75, .9, 1.1], [4.45, 3.0, .8, .8],
+    ];
+    return layout.map(([z, y, w, h], i) => ({
+      z, y, w, h, art: `art${Math.floor(rnd() * ART_COUNT)}` as ArtKey, color: FRAME_COLORS[Math.floor(rnd() * FRAME_COLORS.length)], key: i,
+    }));
+  }, []);
+  const visible = quality === 'high' ? frames : frames.filter((_, i) => i % 2 === 0);
+  return <group>{visible.map(f => <Frame key={f.key} position={[x + .05, f.y, f.z]} size={[f.w, f.h]} art={f.art} color={f.color} textures={textures} />)}</group>;
+}
+
+
+/** Arka duvar: aynaların üstünde iki sıra çerçeve ve ilk aynanın solunda küçük bir grup. */
+function BackGallery({ xs, textures, quality }: { xs: number[]; textures: Textures; quality: Quality }) {
+  const frames = useMemo(() => {
+    const rnd = random(11);
+    const list: { x: number; y: number; w: number; h: number }[] = [];
+    xs.forEach(x => {
+      list.push({ x: x - .95, y: 6.35, w: .8, h: 1.0 }, { x: x + .05, y: 6.6, w: 1.05, h: .8 }, { x: x + 1.0, y: 6.3, w: .7, h: .95 },
+        { x: x - .5, y: 7.65, w: .75, h: .75 }, { x: x + .6, y: 7.6, w: .9, h: 1.0 });
+    });
+    if (xs.length) {
+      const left = xs[0] - 1.95;
+      list.push({ x: left, y: 3.0, w: .62, h: .85 }, { x: left - .02, y: 4.1, w: .7, h: .7 }, { x: left + .05, y: 5.15, w: .6, h: .8 });
+    }
+    return list.map((f, i) => ({ ...f, key: i, art: `art${Math.floor(rnd() * ART_COUNT)}` as ArtKey, color: FRAME_COLORS[Math.floor(rnd() * FRAME_COLORS.length)] }));
+  }, [xs]);
+  const visible = quality === 'high' ? frames : frames.filter((_, i) => i % 2 === 0);
+  return <group>{visible.map(f => <Frame key={f.key} facing="z" position={[f.x, f.y, BACK_Z + .05]} size={[f.w, f.h]} art={f.art} color={f.color} textures={textures} />)}</group>;
+}
+
+/** Tıraş fırçası: ahşap sap + kıl demeti. */
+function Brush({ position, tilt = 0 }: { position: [number, number, number]; tilt?: number }) {
+  return <group position={position} rotation={[0, 0, tilt]}>
+    <mesh position={[0, .09, 0]} castShadow><cylinderGeometry args={[.025, .035, .18, 12]} /><meshStandardMaterial color="#3a2417" roughness={.5} /></mesh>
+    <mesh position={[0, .23, 0]} castShadow><coneGeometry args={[.06, .13, 14]} /><meshStandardMaterial color="#d9c9a7" roughness={.95} /></mesh>
+  </group>;
+}
+
+/** Sol duvarda iki ahşap raf: fırçalar ve şişeler. */
+function Shelves({ x, z }: { x: number; z: number }) {
+  return <group position={[x, 0, z]}>
+    {[2.2, 3.35].map((y, row) => <group key={y} position={[.28, y, 0]}>
+      <mesh castShadow receiveShadow><boxGeometry args={[.55, .07, 2.2]} /><meshStandardMaterial color="#4a3426" roughness={.55} /></mesh>
+      {[-.8, -.5, -.2, .1].map((dz, i) => <Brush key={dz} position={[.02, .035, dz]} tilt={(i % 2 ? .06 : -.05) * (row ? -1 : 1)} />)}
+      <mesh position={[.05, .12, .75]} castShadow><cylinderGeometry args={[.1, .12, .16, 20]} /><meshStandardMaterial color="#d8d3c6" roughness={.4} /></mesh>
+      <mesh position={[.05, .16, .45]} castShadow><cylinderGeometry args={[.06, .06, .24, 16]} /><meshPhysicalMaterial color="#1c1c1c" roughness={.2} clearcoat={.8} /></mesh>
+    </group>)}
+    {[-.9, .9].map(dz => <mesh key={dz} position={[.12, 2.78, dz]}><boxGeometry args={[.05, 1.25, .05]} /><meshStandardMaterial color="#1b1b1b" metalness={.6} roughness={.4} /></mesh>)}
+  </group>;
+}
+
+/** Tavla masası ve iki hasır sehpa/tabure. */
+function TavlaCorner({ position, textures }: { position: [number, number, number]; textures: Textures }) {
+  return <group position={position}>
+    <group position={[0, 0, 0]}>
+      <mesh position={[0, .72, 0]} castShadow receiveShadow><boxGeometry args={[1.2, .06, .8]} /><meshStandardMaterial color="#6b4528" roughness={.5} /></mesh>
+      <mesh position={[0, .755, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1.0, .62]} /><meshStandardMaterial map={textures.board} roughness={.7} /></mesh>
+      {[[-.52, -.32], [.52, -.32], [-.52, .32], [.52, .32]].map(([x, z]) => <mesh key={`${x}${z}`} position={[x, .36, z]} castShadow><cylinderGeometry args={[.03, .025, .72, 10]} /><meshStandardMaterial color="#4a2f1b" roughness={.6} /></mesh>)}
+      {[[-.15, .02], [.1, -.05], [.22, .08], [-.3, -.1]].map(([x, z], i) => <mesh key={i} position={[x, .78, z]} castShadow><cylinderGeometry args={[.035, .035, .025, 14]} /><meshStandardMaterial color={i % 2 ? '#f0e6d0' : '#2a1a10'} roughness={.4} /></mesh>)}
+    </group>
+    {[[-.95, .75, .5], [.95, .7, -.4]].map(([x, z, r], i) => <group key={i} position={[x, 0, z]} rotation={[0, r, 0]}>
+      <mesh position={[0, .46, 0]} castShadow receiveShadow><cylinderGeometry args={[.25, .25, .06, 20]} /><meshStandardMaterial map={textures.wood} color="#d8b98a" roughness={.85} /></mesh>
+      {[0, 1, 2, 3].map(l => <mesh key={l} position={[Math.cos(l * Math.PI / 2 + .7) * .17, .23, Math.sin(l * Math.PI / 2 + .7) * .17]} castShadow><cylinderGeometry args={[.025, .02, .46, 8]} /><meshStandardMaterial color="#6b4528" roughness={.6} /></mesh>)}
+    </group>)}
+  </group>;
 }
 
 function Plant({ position, scale = 1, seed, quality }: { position: [number, number, number]; scale?: number; seed: number; quality: Quality }) {
@@ -127,9 +216,6 @@ export function ShopRoom({ xs, textures, quality, mirrorEnv }: { xs: number[]; t
     list.push(sorted[sorted.length - 1] + 1.62);
     return list;
   }, [sorted]);
-  const wallText = useMemo(() => textTexture(['İYİ', 'SAÇ', 'DAHA İYİ', 'HİSSETTİRİR'], {
-    width: 512, height: 640, color: '#2b2a28', font: '700 64px "Space Grotesk", "DM Sans", sans-serif', lineHeight: 78, rule: true,
-  }), []);
   const poster = useMemo(() => textTexture(['KESİM', 'SAKAL', 'BAKIM', 'STİL'], {
     width: 256, height: 384, color: '#1d1d1c', background: '#f1eee7', font: '700 40px "Space Grotesk", sans-serif', lineHeight: 52, rule: true,
   }), []);
@@ -140,27 +226,36 @@ export function ShopRoom({ xs, textures, quality, mirrorEnv }: { xs: number[]; t
     width: 256, height: 320, color: '#f2efe8', background: '#1e1f20', font: '700 50px "Space Grotesk", sans-serif', lineHeight: 58,
   }), []);
   const width = maxX - minX;
+  const floorMap = useMemo(() => {
+    const map = textures.checker.clone();
+    map.needsUpdate = true;
+    map.repeat.set((width + 8) / 1.8, 16 / 1.8);
+    return map;
+  }, [textures.checker, width]);
+  useEffect(() => () => floorMap.dispose(), [floorMap]);
   const slats = Array.from({ length: 22 }, (_, i) => i);
 
   return <group>
-    {/* Zemin: terrazzo */}
+    {/* Zemin: siyah-beyaz dama (karo ≈ 0.9 m) */}
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[(minX + maxX) / 2, 0, 1.5]} receiveShadow>
       <planeGeometry args={[width + 8, 16]} />
       {quality === 'high'
-        ? <MeshReflectorMaterial map={textures.terrazzo} color="#cfccc5" roughness={.6} metalness={0} blur={[500, 200]} resolution={1024}
-            mixBlur={1} mixStrength={.35} mixContrast={1} depthScale={1} minDepthThreshold={.45} maxDepthThreshold={1.3} mirror={0} />
-        : <meshStandardMaterial map={textures.terrazzo} color="#cfccc5" roughness={.5} />}
+        ? <MeshReflectorMaterial map={floorMap} color="#ffffff" roughness={.42} metalness={0} blur={[400, 160]} resolution={1024}
+            mixBlur={1} mixStrength={.55} mixContrast={1} depthScale={1} minDepthThreshold={.45} maxDepthThreshold={1.3} mirror={0} />
+        : <meshStandardMaterial map={floorMap} color="#ffffff" roughness={.4} />}
     </mesh>
     {/* Duvarlar: beton */}
     <mesh position={[(minX + maxX) / 2, 4.5, BACK_Z]} receiveShadow>
-      <planeGeometry args={[width + 2, 9]} /><meshStandardMaterial map={textures.concrete} color="#dcd8d0" roughness={.92} />
+      <planeGeometry args={[width + 2, 9]} /><meshStandardMaterial map={textures.plaster} color={WALL} roughness={.85} />
     </mesh>
     <mesh position={[minX, 4.5, 1]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-      <planeGeometry args={[11.2, 9]} /><meshStandardMaterial map={textures.concrete} color="#dcd8d0" roughness={.92} />
+      <planeGeometry args={[11.2, 9]} /><meshStandardMaterial map={textures.plaster} color={WALL} roughness={.85} />
     </mesh>
-    <mesh position={[minX + .02, 4.4, -2.9]} rotation={[0, Math.PI / 2, 0]}>
-      <planeGeometry args={[2.2, 2.75]} /><meshStandardMaterial map={wallText} transparent roughness={.9} />
-    </mesh>
+    {/* Sol duvar: çerçeve galerisi, ahşap raflar ve tavla köşesi */}
+    <Gallery x={minX} textures={textures} quality={quality} />
+    <BackGallery xs={sorted} textures={textures} quality={quality} />
+    <Shelves x={minX} z={-3.3} />
+    <TavlaCorner position={[minX + 1.9, 0, 3.4]} textures={textures} />
     {/* Sağ: ahşap lamel bölme */}
     <group position={[maxX, 0, BACK_Z]}>
       {slats.map(i => <mesh key={i} position={[0, 4.2, .12 + i * .21]} castShadow receiveShadow>
