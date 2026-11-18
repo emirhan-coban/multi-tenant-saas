@@ -3,6 +3,8 @@ name: Synthetic
 # Canlı demoyu düzenli sınar (salt okunur Playwright). PR'ları bloklamaz; kırmızı olursa
 # Actions sekmesinde ve e-posta bildiriminde görünür. Elle de çalıştırılabilir.
 on:
+  push:
+    branches: [chore/ops-d] # GEÇİCİ: birleştirmeden önce kaldırılacak
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
