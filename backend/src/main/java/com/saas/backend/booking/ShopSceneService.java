@@ -227,7 +227,7 @@ public class ShopSceneService {
     public record Update(@NotBlank String templateKey,
                          @NotNull @Pattern(regexp = "^#[0-9a-fA-F]{6}$") String accentColor,
                          @NotNull @Min(0) Integer revision,
-                         @NotEmpty @Size(max = 3) List<@Valid ChairInput> chairs) {}
+                         @NotNull @Size(max = 3) List<@Valid ChairInput> chairs) {}
     public record ChairInput(@NotBlank @Pattern(regexp = "^[a-z0-9][a-z0-9-]{1,39}$") String chairKey,
                              @NotBlank @Size(max = 60) String label,
                              @NotNull UUID staffId,

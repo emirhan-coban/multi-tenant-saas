@@ -42,3 +42,30 @@ test('manager edits and saves the versioned chair mapping', async () => {
   }), expect.anything()));
   expect(await screen.findByText('Taslak kaydedildi.')).toBeTruthy();
 });
+
+test('owner can add a chair for an unmapped barber and remove it again', async () => {
+  vi.mocked(management.getShopDesign).mockResolvedValue({ ...state, staff: [...state.staff, { id: 'staff-2', displayName: 'Mert Berber' }] });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  render(<QueryClientProvider client={client}><TenantProvider user={{ userId: 'owner', tenantId: 'tenant', role: 'OWNER' }}><ShopDesignScreen /></TenantProvider></QueryClientProvider>);
+  await screen.findByTestId('scene-preview');
+  expect(screen.getAllByText('Koltuğu kaldır')).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: '+ Koltuk ekle' }));
+  expect(screen.getByText('2. koltuk')).toBeTruthy();
+  expect(screen.getByRole('button', { name: '+ Koltuk ekle' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getAllByText('Koltuğu kaldır')[1]);
+  expect(screen.queryByText('2. koltuk')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '+ Koltuk ekle' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Taslağı kaydet' }));
+  await waitFor(() => expect(management.saveShopDesign).toHaveBeenCalledWith(expect.objectContaining({
+    chairs: [expect.objectContaining({ chairKey: 'chair-1' }), expect.objectContaining({ chairKey: 'chair-2', staffId: 'staff-2', positionX: 0 })],
+  }), expect.anything()));
+});
+
+test('empty chair list guides the owner and blocks publishing', async () => {
+  vi.mocked(management.getShopDesign).mockResolvedValue({ ...state, draft: { ...state.draft, chairs: [] }, staff: [] });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  render(<QueryClientProvider client={client}><TenantProvider user={{ userId: 'owner', tenantId: 'tenant', role: 'OWNER' }}><ShopDesignScreen /></TenantProvider></QueryClientProvider>);
+  expect(await screen.findByText(/Henüz koltuk yok/)).toBeTruthy();
+  expect(screen.getByText('Önce Personel ekranından berber ekleyin.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Yayınla' }).hasAttribute('disabled')).toBe(true);
+});

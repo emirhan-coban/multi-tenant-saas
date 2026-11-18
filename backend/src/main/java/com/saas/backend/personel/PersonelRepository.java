@@ -14,6 +14,7 @@ public interface PersonelRepository extends JpaRepository<Personel, UUID> {
     List<Personel> findByTenantIdAndActiveTrue(UUID tenantId);
     Optional<Personel> findByIdAndTenantIdAndActiveTrue(UUID id, UUID tenantId);
     Optional<Personel> findByIdAndTenantId(UUID id, UUID tenantId);
+    Optional<Personel> findByTenantIdAndUserId(UUID tenantId, UUID userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Personel p where p.id = :id and p.tenant.id = :tenantId and p.active = true")

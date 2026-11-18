@@ -62,6 +62,11 @@ public class AccountMailer {
                 """.formatted(tenantName, link), token);
     }
 
+    /** Davet bağlantısı (e-posta gerçek gönderimde değilken sahibe gösterilir). */
+    public String staffInvitationLink(String token) {
+        return link("/personel-daveti", token);
+    }
+
     private String link(String path, String token) {
         return baseUrl + path + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
     }

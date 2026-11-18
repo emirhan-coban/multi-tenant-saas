@@ -40,7 +40,7 @@ public class OnboardingController {
         var steps = List.of(
                 new Step("profile", "İşletme profilini tamamla", "/app/account", profile),
                 new Step("service", "İlk hizmet ve fiyatı ekle", "/app/services", services),
-                new Step("staff", "Personelini davet et", "/app/staff", staff),
+                new Step("staff", "Berberlerini ekle (kendin dahil)", "/app/staff", staff),
                 new Step("hours", "Çalışma saatlerini belirle", "/app/working-hours", hours),
                 new Step("trial", "Deneme randevusu oluştur", "/app/appointments", trial),
                 new Step("share", "Rezervasyon bağlantısı ve QR'ı paylaş", "/app/booking-link", trial && hours && services)

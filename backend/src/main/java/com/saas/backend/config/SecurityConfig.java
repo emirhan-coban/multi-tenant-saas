@@ -37,6 +37,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http, com.saas.backend.operations.TenantRateLimiter limiter,
                                            com.saas.backend.operations.OperationsService operations,
                                            com.saas.backend.ops.OpsMetrics metrics,
+                                           com.saas.backend.operations.ClientIp clientIp,
                                            @org.springframework.beans.factory.annotation.Value("${app.ops.metrics-token:}") String opsToken) throws Exception {
         http
                 // Faz 9: joker kaynak yok; yalnızca app.security.allowed-origins listesi.
@@ -61,7 +62,7 @@ public class SecurityConfig {
                         .permissionsPolicyHeader(permissions -> permissions.policy("camera=(), microphone=(), geolocation=(), payment=(), usb=()"))
                         .httpStrictTransportSecurity(hsts -> {
                             if (security.hstsMaxAgeSeconds() > 0) {
-                                hsts.maxAgeInSeconds(security.hstsMaxAgeSeconds()).includeSubDomains(true);
+                                hsts.maxAgeInSeconds(security.hstsMaxAgeSeconds()).includeSubDomains(true).requestMatcher(request -> true);
                             } else {
                                 hsts.disable();
                             }
@@ -80,6 +81,8 @@ public class SecurityConfig {
                     response.getWriter().write("{\"code\":\"FORBIDDEN\",\"message\":\"Bu işlem için yetkiniz yok.\"}");
                 }))
                 .authorizeHttpRequests(auth -> auth
+                        // Hata yönlendirmesi (/error) açık olmalı; aksi halde her yakalanmayan hata 401 görünür.
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/auth/logout-all").authenticated()
                         .requestMatchers("/api/customer/v1/auth/logout-all").hasRole("CUSTOMER")
                         // Faz 9: doğrulama e-postası istemek oturum gerektirir; sıfırlama/doğrulama
@@ -95,7 +98,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(new com.saas.backend.operations.AuthRateLimitFilter(limiter), JwtAuthFilter.class)
+                .addFilterBefore(new com.saas.backend.operations.AuthRateLimitFilter(limiter, clientIp), JwtAuthFilter.class)
                 .addFilterAfter(customerJwtAuthFilter, JwtAuthFilter.class)
                 .addFilterAfter(new com.saas.backend.operations.RateLimitFilter(limiter,operations,metrics), CustomerJwtAuthFilter.class)
                 .addFilterAfter(new com.saas.backend.ops.OpsTokenFilter(opsToken), com.saas.backend.operations.RateLimitFilter.class);

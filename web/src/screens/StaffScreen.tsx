@@ -3,14 +3,26 @@ import { Button } from '../components/ui';
 import { Modal } from '../components/Modal';
 import { errorMessage } from '../api/errors';
 import type { InviteResult } from '../api/types';
-import { useInviteStaff, useStaff } from '../query/management';
+import { useAddSelfAsStaff, useInviteStaff, usePendingInvites, useStaff } from '../query/management';
 import { api } from '../api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenant } from '../store/tenant';
 
 function InviteResultDialog({ result, onClose }: { result: InviteResult; onClose: () => void }) {
-  return <Modal title="Davet gönderildi" onClose={onClose}>
-    <p className="muted">Tek kullanımlık davet bağlantısı personelin e-posta adresine gönderildi.</p>
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    if (!result.inviteLink) return;
+    try { await navigator.clipboard.writeText(result.inviteLink); setCopied(true); }
+    catch { document.getElementById('invite-link')?.focus(); (document.getElementById('invite-link') as HTMLInputElement | null)?.select(); }
+  }
+  return <Modal title={result.inviteLink ? 'Davet bağlantısı hazır' : 'Davet gönderildi'} onClose={onClose}>
+    {result.inviteLink
+      ? <>
+        <p className="muted">Bu ortamda e-posta gönderimi kapalı. Bağlantıyı personele kendiniz iletin; bağlantıyı açan kişi şifresini belirleyip ekibe katılır.</p>
+        <label className="field" htmlFor="invite-link"><span>Davet bağlantısı</span><input id="invite-link" readOnly value={result.inviteLink} onFocus={event => event.currentTarget.select()} /></label>
+        <div className="modal-actions"><Button type="button" variant="quiet" onClick={() => void copy()}>{copied ? 'Kopyalandı' : 'Bağlantıyı kopyala'}</Button></div>
+      </>
+      : <p className="muted">Tek kullanımlık davet bağlantısı personelin e-posta adresine gönderildi.</p>}
     <dl className="invite-result-details"><div><dt>E-posta</dt><dd>{result.email}</dd></div></dl>
     <p className="info-notice">Bağlantı 48 saat geçerlidir ve yalnızca bir kez kullanılabilir. Personel kabul edene kadar erişim açılmaz.</p>
     <div className="modal-actions"><Button data-autofocus="true" onClick={onClose}>Tamam</Button></div>
@@ -19,6 +31,8 @@ function InviteResultDialog({ result, onClose }: { result: InviteResult; onClose
 
 export function StaffScreen() {
   const staff = useStaff();
+  const pending = usePendingInvites();
+  const addSelf = useAddSelfAsStaff();
   const client = useQueryClient();
   const { tenantId } = useTenant();
   const [removing, setRemoving] = useState<{ id: string; displayName: string } | null>(null);
@@ -56,11 +70,13 @@ export function StaffScreen() {
   }
   const rows = staff.data ?? [];
   return <>
-    <div className="page-heading services-heading"><div><p className="eyebrow">YÖNETİM</p><h1>Personel</h1><p className="muted">Ekibinizi görüntüleyin ve yeni çalışma arkadaşlarınızı davet edin.</p></div><Button disabled={invite.isPending} onClick={openInvite}>+ Personel davet et</Button></div>
+    <div className="page-heading services-heading"><div><p className="eyebrow">YÖNETİM</p><h1>Personel</h1><p className="muted">Ekibinizi görüntüleyin ve yeni çalışma arkadaşlarınızı davet edin.</p></div><div className="page-actions">{staff.isSuccess && !rows.some(person => person.self) && <Button variant="quiet" disabled={addSelf.isPending} onClick={() => addSelf.mutate()}>{addSelf.isPending ? 'Ekleniyor…' : 'Ben de berberim'}</Button>}<Button disabled={invite.isPending} onClick={openInvite}>+ Personel davet et</Button></div></div>
+    {addSelf.isError && <p className="form-error" role="alert">{errorMessage(addSelf.error, 'Kendiniz personel olarak eklenemedi. Tekrar deneyin.')}</p>}
     {staff.isError && <div className="error-notice"><p role="alert">{errorMessage(staff.error, 'Personel listesi yüklenemedi. Lütfen tekrar deneyin.')}{staff.data ? ' Son alınan liste gösteriliyor.' : ''}</p><Button variant="quiet" disabled={staff.isFetching} onClick={() => void staff.refetch()}>{staff.isFetching ? 'Yükleniyor…' : 'Tekrar dene'}</Button></div>}
     {staff.isPending && <div className="services-skeleton" aria-busy="true" aria-label="Personel yükleniyor"><span className="sr-only" role="status">Personel yükleniyor…</span>{[1, 2, 3].map(key => <div className="skeleton" key={key} aria-hidden="true" />)}</div>}
-    {staff.isSuccess && !rows.length && <section className="empty-state"><span className="empty-symbol" aria-hidden="true">＋</span><h2>Henüz personel eklemediniz</h2><p>İlk çalışma arkadaşınızı davet ederek ekibinizi oluşturmaya başlayın.</p><Button disabled={invite.isPending} onClick={openInvite}>İlk personelini davet et</Button></section>}
+    {staff.isSuccess && !rows.length && <section className="empty-state"><span className="empty-symbol" aria-hidden="true">＋</span><h2>Henüz personel eklemediniz</h2><p>Kendiniz berberseniz kendinizi ekleyin; ekibiniz varsa çalışma arkadaşlarınızı davet edin. Müşteriler randevuyu bir berbere ve koltuğa bağlı alır.</p><div className="empty-actions"><Button disabled={addSelf.isPending} onClick={() => addSelf.mutate()}>{addSelf.isPending ? 'Ekleniyor…' : 'Ben de berberim'}</Button><Button variant="quiet" disabled={invite.isPending} onClick={openInvite}>İlk personelini davet et</Button></div></section>}
     {!!rows.length && <section className="staff-list" aria-label="Personel listesi"><div className="staff-list-heading"><h2>Ekibiniz</h2><span className="role-badge">{rows.length} kişi</span></div><ul>{rows.map(person => <li key={person.id}><span className="staff-avatar" aria-hidden="true">{person.displayName.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toLocaleUpperCase('tr-TR')}</span><strong>{person.displayName}</strong><span className={`staff-status${person.active ? '' : ' is-inactive'}`}><span aria-hidden="true" />{person.active ? 'Aktif' : 'Pasif'}</span><Button variant="quiet" onClick={() => { deactivate.reset(); setRemoving(person); }}>Pasifleştir</Button></li>)}</ul></section>}
+    {!!pending.data?.length && <section className="staff-list" aria-label="Bekleyen davetler"><div className="staff-list-heading"><h2>Bekleyen davetler</h2><span className="role-badge">{pending.data.length}</span></div><ul>{pending.data.map(invite => <li key={invite.id}><span className="staff-avatar" aria-hidden="true">✉</span><strong>{invite.displayName}<small className="muted"> · {invite.email}</small></strong><span className={`staff-status${invite.expired ? ' is-inactive' : ''}`}><span aria-hidden="true" />{invite.expired ? 'Süresi doldu' : 'Kabul bekleniyor'}</span></li>)}</ul></section>}
     {open && <Modal title="Personel davet et" busy={invite.isPending} onClose={() => setOpen(false)}>
       <form onSubmit={submit} noValidate><p className="modal-description muted">Personel erişimi, e-postayla gönderilen tek kullanımlık daveti kabul ettiğinde açılır.</p>
         <fieldset className="invite-fields" disabled={invite.isPending}>

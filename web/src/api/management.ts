@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { BookingApprovalRequest, BookingCustomer, BookingLink, BookingSettings, CurrentUser, CustomerTrust, CustomerTrustEvent, InviteInput, InviteResult, Service, ServiceInput, Staff, StaffRescheduleRequest, WorkingHours } from './types';
+import type { BookingApprovalRequest, BookingCustomer, BookingLink, BookingSettings, CurrentUser, CustomerTrust, CustomerTrustEvent, InviteInput, InviteResult, PendingInvite, Service, ServiceInput, Staff, StaffRescheduleRequest, WorkingHours } from './types';
 import type { BookingRequestStatus, CustomerTrustState } from './booking-contract';
 import type { ShopDesignState } from './shop-scene';
 
@@ -23,6 +23,12 @@ export async function deleteService(id: string) {
 }
 export async function getStaff(signal?: AbortSignal) {
   return (await api.get<Staff[]>('/api/staff', { signal })).data;
+}
+export async function addSelfAsStaff() {
+  return (await api.post<Staff>('/api/staff/self')).data;
+}
+export async function getPendingInvites(signal?: AbortSignal) {
+  return (await api.get<PendingInvite[]>('/api/staff/invitations', { signal })).data;
 }
 export async function inviteStaff(input: InviteInput) {
   return (await api.post<InviteResult>('/api/staff/invite', input)).data;

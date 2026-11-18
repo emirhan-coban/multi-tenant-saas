@@ -13,6 +13,12 @@ services:
         value: "-Xmx380m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError"
       - key: SPRING_MAIN_LAZY_INITIALIZATION
         value: "true"
+      # Render, Cloudflare arkasındadır: gerçek istemci adresi Cloudflare'in yazdığı başlıktan alınır.
+      # Sahte X-Forwarded-For ile IP hız sınırı aşılamaz. Başlık gelmezse uygulama WARN loglar.
+      - key: APP_CLIENT_IP_HEADER
+        value: "CF-Connecting-IP"
+      - key: APP_HSTS_MAX_AGE_SECONDS
+        value: "31536000"
       - key: SPRING_FLYWAY_ENABLED
         value: "false"
       # Demo kipi: canlı Gmail zorunluluğu uyarıya düşer. JWT/VAPID/mail anahtarları yine de gerçek ve güçlüdür.
