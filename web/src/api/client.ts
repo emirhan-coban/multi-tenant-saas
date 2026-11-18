@@ -62,6 +62,16 @@ export async function authenticate(path: '/api/auth/login' | '/api/auth/register
   return data;
 }
 
+/** Çok işletmeli kullanıcı: oturum açıkken başka işletmeye geç (yeni token çifti). */
+export async function switchTenantRequest(tenantId: string) {
+  const { data } = await api.post<AuthData>('/api/me/switch-tenant', { tenantId });
+  applyTokens(data);
+  return data;
+}
+
+const MAX_AUTO_RETRY_SECONDS = 10;
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 api.interceptors.request.use((request: InternalAxiosRequestConfig) => {
   const requestSignal = request.signal as AbortSignal | undefined;
   request.signal = requestSignal
@@ -79,7 +89,16 @@ api.interceptors.response.use(response => response, async (error: AxiosError) =>
       message: body?.code === 'QUOTA_EXCEEDED' ? body.message : `Çok fazla istek gönderdiniz. ${error.response?.headers?.['retry-after'] ?? 60} saniye bekleyip tekrar deneyin.`,
     } }));
   }
-  const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+  const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean; _rateRetry?: boolean }) | undefined;
+  // 429: yalnızca okuma (GET) kısa Retry-After ile bir kez otomatik yeniden denenir; yazma istekleri asla.
+  if (error.response?.status === 429 && original && !original._rateRetry && original.method?.toLowerCase() === 'get' && !original.signal?.aborted) {
+    const wait = Number(error.response.headers?.['retry-after']);
+    if (Number.isFinite(wait) && wait > 0 && wait <= MAX_AUTO_RETRY_SECONDS) {
+      original._rateRetry = true;
+      await sleep(wait * 1000);
+      if (!original.signal?.aborted) return api(original);
+    }
+  }
   if (error.response?.status !== 401 || !original || original._retry || original.signal?.aborted) throw error;
   original._retry = true;
   const data = await restoreSession();

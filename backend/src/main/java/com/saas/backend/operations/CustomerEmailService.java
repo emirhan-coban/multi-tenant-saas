@@ -38,7 +38,7 @@ public class CustomerEmailService {
         String service=db.queryForObject("select name from services where id=? and tenant_id=?",String.class,a.getServiceId(),tenant);
         var payload=Map.of("startsAt",a.getStartsAt().toString(),"timezone",zone,"tenantName",tenantRow.get("name").toString(),
             "serviceName",service,"customerName",Objects.toString(a.getCustomerName(),""));
-        insert(tenant,recipient,a,event,payload,Instant.now());
+        insert(tenant,recipient,a,event,payload,null); // null: veritabanı saati (JVM/DB saat farkı yüzünden "henüz hazır değil" olmasın)
         // Near-term appointments get their confirmation, not a second immediate reminder.
         Instant remindAt=a.getStartsAt().minus(Duration.ofHours(24));
         if(!event.equals("CUSTOMER_CANCELLED") && remindAt.isAfter(Instant.now()))
@@ -47,8 +47,8 @@ public class CustomerEmailService {
     private void insert(UUID tenant,UUID recipient,Appointment a,String event,Map<String,String> payload,Instant at) {
         db.update("""
             insert into outbox(tenant_id,recipient_id,appointment_id,event_type,payload,available_at,recipient_email)
-            values (?,?,?,?,cast(? as jsonb),?,?)
-            """,tenant,recipient,a.getId(),event,json.writeValueAsString(payload),Timestamp.from(at),a.getCustomerEmail());
+            values (?,?,?,?,cast(? as jsonb),coalesce(?,clock_timestamp()),?)
+            """,tenant,recipient,a.getId(),event,json.writeValueAsString(payload),at==null?null:Timestamp.from(at),a.getCustomerEmail());
     }
     // Runs inside OutboxWorker's transaction and row lock.
     public Delivery deliver(Map<String,Object> event) {

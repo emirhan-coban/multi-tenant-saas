@@ -1,16 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { AuthScreen } from '../screens/AuthScreen';
-import { StaffScreen } from '../screens/StaffScreen';
-import { ServicesScreen } from '../screens/ServicesScreen';
 import { AppScreen } from '../screens/AppScreen';
 import { useAuth } from '../store/auth';
 import { TenantProvider, useTenant } from '../store/tenant';
 import { PanelLayout } from '../layouts/PanelLayout';
-import { AccountScreen } from '../screens/AccountScreen';
-import { WorkingHoursScreen } from '../screens/WorkingHoursScreen';
-import { AppointmentsScreen } from '../screens/AppointmentsScreen';
-import { AuditScreen, ReportsScreen, PlanScreen, NotificationsScreen } from '../screens/OperationsScreens';
 import { canAccess, managementRoles, memberRoles, ownerRoles } from './navigation';
 import type { Role } from '../api/types';
 import { useCurrentUser } from '../query/management';
@@ -18,21 +12,30 @@ import { PageSkeleton } from '../components/PageSkeleton';
 import { Button, Card } from '../components/ui';
 import { CustomerAuthScreen } from '../screens/CustomerAuthScreen';
 import { CustomerAccountScreen } from '../screens/CustomerAccountScreen';
-import { BookingRequestsScreen } from '../screens/BookingRequestsScreen';
 import { useCustomerAuth } from '../store/customer-auth';
-import { BookingLinkScreen } from '../screens/BookingLinkScreen';
-import { CustomersScreen } from '../screens/CustomersScreen';
-import { BookingSettingsScreen } from '../screens/BookingSettingsScreen';
-import { ShopDesignScreen } from '../screens/ShopDesignScreen';
-import { FeatureFlagScreen } from '../screens/FeatureFlagScreen';
 import { ForgotPasswordScreen, ResetPasswordScreen, VerifyEmailScreen } from '../screens/AccountRecoveryScreens';
 import { PrivacyScreen } from '../screens/PrivacyScreen';
 import { StaffInvitationScreen } from '../screens/StaffInvitationScreen';
-import { MyScheduleScreen } from '../screens/MyScheduleScreen';
-import { OnboardingScreen } from '../screens/OnboardingScreen';
-import { SupportScreen } from '../screens/SupportScreen';
 import { DemoBookingScreen, SalesScreen } from '../screens/SalesScreen';
 
+const StaffScreen = lazy(() => import('../screens/StaffScreen').then(module => ({ default: module.StaffScreen })));
+const ServicesScreen = lazy(() => import('../screens/ServicesScreen').then(module => ({ default: module.ServicesScreen })));
+const AccountScreen = lazy(() => import('../screens/AccountScreen').then(module => ({ default: module.AccountScreen })));
+const WorkingHoursScreen = lazy(() => import('../screens/WorkingHoursScreen').then(module => ({ default: module.WorkingHoursScreen })));
+const AppointmentsScreen = lazy(() => import('../screens/AppointmentsScreen').then(module => ({ default: module.AppointmentsScreen })));
+const BookingRequestsScreen = lazy(() => import('../screens/BookingRequestsScreen').then(module => ({ default: module.BookingRequestsScreen })));
+const BookingLinkScreen = lazy(() => import('../screens/BookingLinkScreen').then(module => ({ default: module.BookingLinkScreen })));
+const CustomersScreen = lazy(() => import('../screens/CustomersScreen').then(module => ({ default: module.CustomersScreen })));
+const BookingSettingsScreen = lazy(() => import('../screens/BookingSettingsScreen').then(module => ({ default: module.BookingSettingsScreen })));
+const ShopDesignScreen = lazy(() => import('../screens/ShopDesignScreen').then(module => ({ default: module.ShopDesignScreen })));
+const FeatureFlagScreen = lazy(() => import('../screens/FeatureFlagScreen').then(module => ({ default: module.FeatureFlagScreen })));
+const MyScheduleScreen = lazy(() => import('../screens/MyScheduleScreen').then(module => ({ default: module.MyScheduleScreen })));
+const OnboardingScreen = lazy(() => import('../screens/OnboardingScreen').then(module => ({ default: module.OnboardingScreen })));
+const SupportScreen = lazy(() => import('../screens/SupportScreen').then(module => ({ default: module.SupportScreen })));
+const AuditScreen = lazy(() => import('../screens/OperationsScreens').then(module => ({ default: module.AuditScreen })));
+const ReportsScreen = lazy(() => import('../screens/OperationsScreens').then(module => ({ default: module.ReportsScreen })));
+const PlanScreen = lazy(() => import('../screens/OperationsScreens').then(module => ({ default: module.PlanScreen })));
+const NotificationsScreen = lazy(() => import('../screens/OperationsScreens').then(module => ({ default: module.NotificationsScreen })));
 const BookingScreen = lazy(() => import('../screens/BookingScreen').then(module => ({ default: module.BookingScreen })));
 
 function RequireSession() {
@@ -123,7 +126,7 @@ function RouteTitle() {
 }
 
 export function AppRoutes() {
-  return <><RouteTitle /><Routes>
+  return <><RouteTitle /><Suspense fallback={<PageSkeleton />}><Routes>
     <Route path="/" element={<Navigate to="/app" replace />} />
     <Route path="/login" element={<LoginRoute />} />
     <Route path="/tanitim" element={<SalesScreen />} />
@@ -174,5 +177,5 @@ export function AppRoutes() {
       </Route>
     </Route>
     <Route path="*" element={<NotFound />} />
-  </Routes></>;
+  </Routes></Suspense></>;
 }

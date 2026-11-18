@@ -72,3 +72,33 @@ test('invalid refresh expires the session and does not recursively refresh', asy
   expect(localStorage.getItem('saas.refreshToken')).toBeNull();
   unsubscribe();
 });
+
+test('429 on a read is retried once after a short Retry-After; writes are never retried', async () => {
+  client.resetSessionTransport();
+  let reads = 0;
+  adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => {
+    if (config.method === 'get' && ++reads === 1) {
+      throw new AxiosError('Too Many', 'ERR_BAD_REQUEST', config, undefined,
+        { ...response(config, { code: 'RATE_LIMIT_EXCEEDED' }, 429), headers: { 'retry-after': '1' } });
+    }
+    if (config.method === 'post') {
+      throw new AxiosError('Too Many', 'ERR_BAD_REQUEST', config, undefined,
+        { ...response(config, { code: 'RATE_LIMIT_EXCEEDED' }, 429), headers: { 'retry-after': '1' } });
+    }
+    return response(config, ['ok']);
+  });
+  await expect(client.api.get('/api/services')).resolves.toMatchObject({ data: ['ok'] });
+  expect(reads).toBe(2);
+  adapter.mockClear();
+  await expect(client.api.post('/api/services', {})).rejects.toMatchObject({ response: { status: 429 } });
+  expect(adapter).toHaveBeenCalledOnce();
+});
+
+test('switchTenantRequest stores the new tokens', async () => {
+  client.resetSessionTransport();
+  adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => response(config, { ...session, accessToken: 'tenant-b', refreshToken: 'refresh-b' }));
+  const data = await client.switchTenantRequest('tenant-b-id');
+  expect(data.accessToken).toBe('tenant-b');
+  expect(adapter.mock.calls[0][0].url).toBe('/api/me/switch-tenant');
+  expect(localStorage.getItem('saas.refreshToken')).toBe('refresh-b');
+});

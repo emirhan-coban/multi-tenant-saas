@@ -23,4 +23,15 @@ public class BookingRequestRateLimiter {
         if (!probe.isConsumed())
             throw new BookingRateLimitException(TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill()));
     }
+
+    public void checkAccount(UUID tenant, UUID account) {
+        final io.github.bucket4j.ConsumptionProbe probe;
+        try {
+            probe = limiter.consumeBookingAccount(tenant, account);
+        } catch (RuntimeException ex) {
+            throw new BookingRateLimitUnavailableException(ex);
+        }
+        if (!probe.isConsumed())
+            throw new BookingRateLimitException(TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill()));
+    }
 }
