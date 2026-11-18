@@ -50,6 +50,46 @@ function clouds(ctx: CanvasRenderingContext2D, size: number, seed: number, count
   }
 }
 
+
+/** Özgün, geometrik (Bauhaus esintili) çerçeve görselleri: telifli hiçbir eser kullanılmaz. */
+const ART_PALETTES = [
+  ['#e8d9b5', '#c8423a', '#f2b632', '#1f2a44'],
+  ['#f1ead8', '#2c8aa6', '#e0653a', '#1b1b1b'],
+  ['#1d2b3a', '#f2c14e', '#e4572e', '#f4ece0'],
+  ['#efe4cf', '#3f7d5b', '#d9a441', '#2a2a2a'],
+  ['#f3e9dc', '#b5382f', '#2d4a7a', '#e7b23c'],
+  ['#222222', '#e9e2d2', '#c8423a', '#3a9ab5'],
+  ['#e9dfc8', '#7a4a2e', '#d4883a', '#2f5d62'],
+  ['#f0e6d2', '#d1495b', '#00798c', '#edae49'],
+];
+
+function artTexture(seed: number, palette: string[]) {
+  return canvasTexture(256, (ctx, s) => {
+    const rnd = random(seed * 977 + 13);
+    ctx.fillStyle = palette[0]; ctx.fillRect(0, 0, s, s);
+    const pick = () => palette[1 + Math.floor(rnd() * (palette.length - 1))];
+    const shapes = 4 + Math.floor(rnd() * 3);
+    for (let i = 0; i < shapes; i++) {
+      const kind = Math.floor(rnd() * 5);
+      const x = rnd() * s, y = rnd() * s, r = s * (.12 + rnd() * .26);
+      ctx.fillStyle = pick();
+      ctx.beginPath();
+      if (kind === 0) ctx.arc(x, y, r, 0, Math.PI * 2);
+      else if (kind === 1) ctx.arc(x, y, r, 0, Math.PI);
+      else if (kind === 2) ctx.rect(x - r, y - r * .6, r * 2, r * 1.2);
+      else if (kind === 3) { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y + r); ctx.lineTo(x - r, y + r); ctx.closePath(); }
+      else { for (let k = 0; k < 5; k++) ctx.rect(x - r, y - r + k * r * .4, r * 2, r * .18); }
+      ctx.fill();
+    }
+    ctx.strokeStyle = palette[palette.length - 1]; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(0, rnd() * s); ctx.lineTo(s, rnd() * s); ctx.stroke();
+    clouds(ctx, s, seed + 5, 6, 'rgba(255,255,255,.12)', 'rgba(0,0,0,.08)');
+  });
+}
+
+export const ART_COUNT = ART_PALETTES.length;
+export type ArtKey = `art${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7}`;
+
 export function createShopTextures(quality: 'high' | 'low') {
   const size = quality === 'high' ? 1024 : 512;
   const k = size / 1024;
@@ -97,7 +137,37 @@ export function createShopTextures(quality: 'high' | 'low') {
     gradient.addColorStop(1, 'rgba(66,214,205,0)');
     ctx.fillStyle = gradient; ctx.fillRect(0, 0, s, s);
   });
-  return { terrazzo, counter, concrete, wood, leatherBump, glow };
+  // Retro stüdyo: dama zemin (2x2 karo / tekrar), boyalı sıva duvar, tavla tahtası.
+  const checker = canvasTexture(512, (ctx, s) => {
+    const rnd = random(71); const half = s / 2;
+    for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+      ctx.fillStyle = (x + y) % 2 ? '#ebe8e0' : '#151515';
+      ctx.fillRect(x * half, y * half, half, half);
+    }
+    speckles(ctx, s, 73, 5200 * k * k, ['rgba(255,255,255,.07)', 'rgba(0,0,0,.08)'], .4 * k, 1.6 * k);
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.fillRect(0, 0, s, 2); ctx.fillRect(0, half - 1, s, 2); ctx.fillRect(0, 0, 2, s); ctx.fillRect(half - 1, 0, 2, s);
+    for (let i = 0; i < 14; i++) { ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(rnd() * s, rnd() * s, 18 * k, 2); }
+  }, { repeat: [1, 1] });
+  const plaster = canvasTexture(size / 2, (ctx, s) => {
+    ctx.fillStyle = '#e9eef0'; ctx.fillRect(0, 0, s, s);
+    clouds(ctx, s, 83, 90, 'rgba(255,255,255,.18)', 'rgba(40,70,90,.12)');
+    speckles(ctx, s, 89, 7000 * k * k, ['rgba(40,70,90,.10)', 'rgba(255,255,255,.14)'], .4 * k, 1.2 * k);
+  }, { repeat: [3, 1.4] });
+  const board = canvasTexture(256, (ctx, s) => {
+    ctx.fillStyle = '#c99b63'; ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = '#3b2616'; ctx.fillRect(s / 2 - 6, 0, 12, s);
+    for (let side = 0; side < 2; side++) for (let i = 0; i < 6; i++) for (const top of [true, false]) {
+      const x0 = side * (s / 2 + 6) + 8 + i * ((s / 2 - 30) / 6) ; const w = (s / 2 - 30) / 6;
+      ctx.fillStyle = (i + side) % 2 ? '#6b3a1e' : '#efe2c4';
+      ctx.beginPath();
+      if (top) { ctx.moveTo(x0, 10); ctx.lineTo(x0 + w, 10); ctx.lineTo(x0 + w / 2, s * .42); }
+      else { ctx.moveTo(x0, s - 10); ctx.lineTo(x0 + w, s - 10); ctx.lineTo(x0 + w / 2, s * .58); }
+      ctx.closePath(); ctx.fill();
+    }
+  });
+  const art = Object.fromEntries(ART_PALETTES.map((palette, i) => [`art${i}`, artTexture(i + 1, palette)])) as Record<ArtKey, THREE.CanvasTexture>;
+  return { terrazzo, counter, concrete, wood, leatherBump, glow, checker, plaster, board, ...art };
 }
 
 export function textTexture(lines: string[], options: { width: number; height: number; color: string; background?: string; font: string; lineHeight: number; align?: CanvasTextAlign; rotate?: number; x?: number; y?: number; rule?: boolean }) {
