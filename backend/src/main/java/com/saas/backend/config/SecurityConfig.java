@@ -95,6 +95,12 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").hasRole("OPS")
                         .requestMatchers("/api/customer/v1/**").hasRole("CUSTOMER")
+                        // Yetki, istek gövdesi doğrulamasından ÖNCE denetlenir (STAFF geçersiz gövdeyle 400 değil 403 alır).
+                        // Kontrolcülerdeki @PreAuthorize aynı kuralı savunma derinliği olarak sürdürür.
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/services/**", "/api/staff/**", "/api/working-hours/**", "/api/booking-settings/**", "/api/shop-design/**").hasAnyRole("OWNER", "MANAGER")
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/services/**", "/api/staff/**", "/api/working-hours/**", "/api/booking-settings/**", "/api/shop-design/**").hasAnyRole("OWNER", "MANAGER")
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/services/**", "/api/staff/**", "/api/working-hours/**", "/api/booking-settings/**", "/api/shop-design/**").hasAnyRole("OWNER", "MANAGER")
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/services/**", "/api/staff/**", "/api/working-hours/**", "/api/booking-settings/**", "/api/shop-design/**").hasAnyRole("OWNER", "MANAGER")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
