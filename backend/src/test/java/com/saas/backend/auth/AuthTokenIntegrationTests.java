@@ -82,6 +82,34 @@ class AuthTokenIntegrationTests extends PostgresTestBase {
         assertEquals("INVALID_REFRESH_TOKEN", json.readTree(refreshResponse.body()).get("code").asString());
     }
 
+    private HttpResponse<String> refresh(String token) throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/auth/refresh"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"refreshToken\":\"" + token + "\"}"))
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    void refreshTokenIsSingleUseAndLateReuseRevokesAllSessions() throws Exception {
+        var first = jwt.generateRefreshToken(userId, tenantId, "OWNER");
+        var ok = refresh(first);
+        assertEquals(200, ok.statusCode());
+        var rotated = json.readTree(ok.body()).get("refreshToken").asString();
+
+        // Hemen yeniden kullanım (eşzamanlı sekme): reddedilir ama oturum ailesi iptal edilmez.
+        assertEquals(401, refresh(first).statusCode());
+        assertEquals(200, refresh(rotated).statusCode());
+
+        // Geç yeniden kullanım: çalıntı sayılır, hesabın tüm oturumları iptal olur.
+        var old = jwt.generateRefreshToken(userId, tenantId, "OWNER");
+        assertEquals(200, refresh(old).statusCode());
+        jdbc.update("update used_refresh_tokens set used_at = now() - interval '1 minute'");
+        assertEquals(401, refresh(old).statusCode());
+        var fresh = jwt.generateRefreshToken(userId, tenantId, "OWNER");
+        assertEquals(401, refresh(fresh).statusCode());
+    }
+
     private HttpResponse<String> getMe(String token) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/me"))
                 .header("Authorization", "Bearer " + token)

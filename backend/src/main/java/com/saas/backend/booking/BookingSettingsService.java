@@ -12,9 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BookingSettingsService {
     private final EntityManager em;
+    private final com.saas.backend.operations.OperationsService operations;
 
-    public BookingSettingsService(EntityManager em) {
+    public BookingSettingsService(EntityManager em, com.saas.backend.operations.OperationsService operations) {
         this.em = em;
+        this.operations = operations;
     }
 
     @Transactional(readOnly = true)
@@ -26,6 +28,7 @@ public class BookingSettingsService {
     @Transactional
     public Settings update(AuthenticatedUser user, Update update) {
         context(user);
+        Settings before = current(user);
         int changed = em.createNativeQuery("""
                 update booking_settings set trusted_auto_confirm_enabled=:trusted,
                   max_future_appointments=:future,max_daily_bookings=:daily,
@@ -43,7 +46,10 @@ public class BookingSettingsService {
                 .setParameter("tenant", user.tenantId()).setParameter("version", update.version())
                 .executeUpdate();
         if (changed != 1) throw new ApiException("STALE_VERSION", "Rezervasyon ayarları başka biri tarafından değiştirildi. Sayfayı yenileyin.");
-        return current(user);
+        Settings after = current(user);
+        operations.audit(user, "BOOKING_SETTINGS_CHANGED", "booking_settings", user.tenantId(),
+                java.util.Map.of("before", before, "after", after));
+        return after;
     }
 
     private Settings current(AuthenticatedUser user) {

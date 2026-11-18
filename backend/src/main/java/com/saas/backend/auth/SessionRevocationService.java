@@ -32,6 +32,31 @@ public class SessionRevocationService {
         db.update("update push_subscriptions set disabled_at=now(),disabled_reason='LOGOUT_ALL' where owner_type='CUSTOMER' and owner_id=? and disabled_at is null", accountId);
     }
 
+    /**
+     * Refresh token'ı tek kullanımlık yapar. Aynı jti ikinci kez gelirse: kısa süre içindeyse (eşzamanlı
+     * sekme/ağ yeniden denemesi) yalnızca reddedilir; daha sonraysa token çalınmış olabilir, hesabın tüm
+     * oturumları iptal edilir. Çağıranın {@code noRollbackFor = ApiException.class} kullanması gerekir.
+     *
+     * @return true: ilk kullanım (devam); false: yeniden kullanım (reddedilmeli)
+     */
+    @Transactional
+    public boolean consumeRefresh(Claims claims, String ownerType, UUID ownerId) {
+        String jti = claims.getId();
+        if (jti == null) return true;
+        db.update("delete from used_refresh_tokens where expires_at < now()");
+        Timestamp exp = claims.getExpiration() == null ? null : new Timestamp(claims.getExpiration().getTime());
+        int inserted = db.update(
+                "insert into used_refresh_tokens(jti,owner_type,owner_id,expires_at) values (?::uuid,?,?,coalesce(?, now()+interval '30 days')) on conflict do nothing",
+                jti, ownerType, ownerId, exp);
+        if (inserted == 1) return true;
+        Boolean stale = db.queryForObject(
+                "select used_at < now() - interval '10 seconds' from used_refresh_tokens where jti=?::uuid", Boolean.class, jti);
+        if (Boolean.TRUE.equals(stale)) {
+            if ("STAFF".equals(ownerType)) revokeStaff(ownerId); else revokeCustomer(ownerId);
+        }
+        return false;
+    }
+
     public boolean staffTokenRevoked(UUID userId, Claims claims) {
         return revoked(db.queryForList("select session_version,sessions_valid_after from users where id=?", userId), claims);
     }
