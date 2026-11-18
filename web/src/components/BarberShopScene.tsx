@@ -31,6 +31,34 @@ function initialQuality(): Quality {
 }
 
 
+
+/** Çalışan yokken 3 soluk "boş koltuk" gösterilir: dükkân boş bir oda gibi kalmaz. */
+const PLACEHOLDER_XS = [-3.25, 0, 3.25];
+
+function EmptyChair({ x, index, model, compact }: { x: number; index: number; model: string; compact: boolean }) {
+  const gltf = useGLTF(model);
+  const parts = useMemo(() => {
+    const list: { geometry: THREE.BufferGeometry; material: THREE.MeshStandardMaterial }[] = [];
+    gltf.scene.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const material = (object.material as THREE.MeshStandardMaterial).clone();
+      if (material.name === 'Leather') { material.color.set(FULL_LEATHER); material.roughness = .75; }
+      list.push({ geometry: object.geometry, material });
+    });
+    return list;
+  }, [gltf.scene]);
+  useEffect(() => () => parts.forEach(part => part.material.dispose()), [parts]);
+  return <group position={[x, 0, -1.25]}>
+    {parts.map((part, i) => <mesh key={i} geometry={part.geometry} material={part.material} castShadow receiveShadow />)}
+    <Html position={[0, .05, 1.75]} center zIndexRange={[20, 10]} className="scene-html">
+      <span className="scene-chair-label is-empty" role="img" aria-label={`Boş koltuk ${index + 1}`}>
+        {compact ? <strong className="scene-chair-number">{String(index + 1).padStart(2, '0')}</strong>
+          : <span className="scene-label-copy"><strong>{String(index + 1).padStart(2, '0')} · Boş koltuk</strong><small>Berber bekleniyor</small></span>}
+      </span>
+    </Html>
+  </group>;
+}
+
 function Chair({ chair, index, model, accentColor, selected, status, textures, quality, compact, onSelect }: {
   chair: SceneChair; index: number; model: string; accentColor: string; selected: boolean; status?: ChairStatus;
   textures: ReturnType<typeof createShopTextures>; quality: Quality; compact: boolean; onSelect: SelectHandler;
@@ -234,7 +262,8 @@ function Shop({ manifest, selectedId, statuses, quality, compact, zoom, resetTok
   const textures = useMemo(() => createShopTextures(quality), [quality]);
   useEffect(() => () => Object.values(textures).forEach(texture => texture.dispose()), [textures]);
   const selected = manifest.chairs.find(chair => chair.staffId === selectedId);
-  const xs = useMemo(() => manifest.chairs.map(chair => chair.positionX), [manifest.chairs]);
+  const noChairs = manifest.chairs.length === 0;
+  const xs = useMemo(() => noChairs ? PLACEHOLDER_XS : manifest.chairs.map(chair => chair.positionX), [manifest.chairs, noChairs]);
   const mirrorEnv = useRoomReflection(quality === 'high', `${selectedId}-${JSON.stringify(statuses ?? {})}`);
   const model = quality === 'high' ? DESKTOP_MODEL : MOBILE_MODEL;
   const focus = useMemo<[number, number]>(() => [selected?.positionX ?? 0, selected?.positionZ ?? -1.25], [selected?.positionX, selected?.positionZ]);
@@ -266,6 +295,7 @@ function Shop({ manifest, selectedId, statuses, quality, compact, zoom, resetTok
       shadow-mapSize={[2048, 2048]} shadow-bias={-.0003} shadow-normalBias={.02} shadow-radius={6}
       shadow-camera-left={-11} shadow-camera-right={11} shadow-camera-top={9} shadow-camera-bottom={-9} shadow-camera-far={40} />
     <ShopRoom xs={xs} textures={textures} quality={quality} mirrorEnv={mirrorEnv} />
+    {noChairs && PLACEHOLDER_XS.map((x, index) => <EmptyChair key={x} x={x} index={index} model={model} compact={compact} />)}
     {manifest.chairs.map((chair, index) => <Chair key={chair.chairKey} chair={chair} index={index} model={model} accentColor={manifest.accentColor}
       selected={selectedId === chair.staffId} status={statuses?.[chair.staffId]} textures={textures} quality={quality} compact={compact} onSelect={onSelect} />)}
     <ContactShadows position={[0, .01, -1]} opacity={.55} scale={[22, 12]} blur={2.2} far={3.5} resolution={quality === 'high' ? 1024 : 512} frames={1} color="#2a2420" />

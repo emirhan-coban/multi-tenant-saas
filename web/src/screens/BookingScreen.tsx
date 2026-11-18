@@ -81,6 +81,9 @@ export function BookingScreen() {
       if (data.staff.length > 3) {
         setView('list');
         setNotice('Bu işletmede tüm çalışanlar liste görünümünde gösteriliyor.');
+      } else if (data.staff.length === 0) {
+        // Koltuklar çalışanlara bağlıdır: çalışan yokken sahne boş koltuk gösterir, randevu alınamaz.
+        setNotice('Bu işletmede şu an randevu alınabilecek berber yok. Lütfen daha sonra tekrar deneyin.');
       }
       setStaffId(current => current || data.staff[0]?.id || '');
       setServiceId(current => current || data.services[0]?.id || '');
@@ -443,7 +446,7 @@ export function BookingScreen() {
   if (compact) {
     const stageTitle = onBarberStage ? 'Berberini seç' : step === 1 ? 'Saatini seç' : step === 2 ? 'Bilgilerin' : 'Son kontrol';
     const stageSubtitle = onBarberStage
-      ? (selectedStaff ? `${selectedStaff.displayName}${chairNumber ? ` · Koltuk ${chairNumber}` : ''}` : 'Koltuğa dokun')
+      ? (selectedStaff ? `${selectedStaff.displayName}${chairNumber ? ` · Koltuk ${chairNumber}` : ''}` : (shop.staff.length === 0 ? 'Henüz berber yok' : 'Koltuğa dokun'))
       : `${selectedStaff?.displayName.split(' ')[0] ?? ''}${slotLabel ? ` · ${shortDay(date)} ${slotLabel}` : ''}`;
 
     return <main className="booking-shell booking-compact" data-stage={onBarberStage ? 'barber' : step === 1 ? 'time' : step === 2 ? 'details' : 'review'}>

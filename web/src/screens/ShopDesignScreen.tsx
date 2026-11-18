@@ -46,14 +46,14 @@ export function ShopDesignScreen() {
       <form className="shop-design-controls" onSubmit={event => { event.preventDefault(); void run(() => save.mutateAsync(draft), 'Taslak kaydedildi.'); }}>
         <fieldset><legend>Şablon</legend><label className="field">Dükkân düzeni<select value={draft.templateKey} onChange={event => setDraft({ ...draft, templateKey: event.target.value as ShopScene['templateKey'] })}><option value="CLASSIC_3_CHAIR">Klasik üç koltuk</option></select></label></fieldset>
         <fieldset><legend>Vurgu rengi</legend><div className="color-swatches">{swatches.map(color => <button key={color} type="button" aria-label={`Renk ${color}`} title={color} className={draft.accentColor === color ? 'is-selected' : ''} style={{ background: color }} onClick={() => setDraft({ ...draft, accentColor: color })} />)}</div></fieldset>
-        <fieldset><legend>Koltuk eşlemeleri</legend><div className="chair-editor-list">{draft.chairs.map((chair, index) => <div className="chair-editor-row" key={chair.chairKey}>
+        <fieldset><legend>Koltuk eşlemeleri</legend>{draft.chairs.length === 0 && <p className="field-hint" role="status">Henüz koltuk yok. Personel ekranından bir berber eklediğinizde koltuk otomatik eşlenir; müşteriler o zamana kadar boş koltukları görür.</p>}<div className="chair-editor-list">{draft.chairs.map((chair, index) => <div className="chair-editor-row" key={chair.chairKey}>
           <strong>{index + 1}. koltuk</strong>
           <label>Personel<select value={chair.staffId} onChange={event => { const member = query.data.staff.find(item => item.id === event.target.value); updateChair(index, { staffId: event.target.value, staffName: member?.displayName ?? '' }); }}>{query.data.staff.map(member => <option value={member.id} key={member.id}>{member.displayName}</option>)}</select></label>
           <label>Etiket<input value={chair.label} maxLength={60} onChange={event => updateChair(index, { label: event.target.value })} /></label>
           <label>X konumu<input type="number" min="-8" max="8" step="0.25" value={chair.positionX} onChange={event => updateChair(index, { positionX: Number(event.target.value) })} /></label>
         </div>)}</div></fieldset>
         {notice && <p className="success-notice" role="status">{notice}</p>}{error && <p className="error-notice" role="alert">{error}</p>}
-        <div className="shop-design-actions"><Button disabled={save.isPending}>{save.isPending ? 'Kaydediliyor...' : 'Taslağı kaydet'}</Button><Button type="button" variant="quiet" disabled={save.isPending || publish.isPending} onClick={() => void run(async () => {
+        <div className="shop-design-actions"><Button disabled={save.isPending}>{save.isPending ? 'Kaydediliyor...' : 'Taslağı kaydet'}</Button><Button type="button" variant="quiet" disabled={save.isPending || publish.isPending || draft.chairs.length === 0} onClick={() => void run(async () => {
           const saved = await save.mutateAsync(draft);
           return publish.mutateAsync(saved.draft.revision);
         }, 'Yeni sahne yayınlandı.')} >{publish.isPending ? 'Yayınlanıyor...' : 'Yayınla'}</Button></div>
