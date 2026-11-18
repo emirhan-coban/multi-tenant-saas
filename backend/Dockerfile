@@ -1,5 +1,5 @@
 # Faz 9 — üretim imajı. Çok aşamalı yapı: derleme katmanı imaja taşınmaz.
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 WORKDIR /workspace
 
 # Bağımlılıklar önce indirilir: kaynak değişince katman önbelleği korunur.
