@@ -133,6 +133,18 @@ class AuthTokenIntegrationTests extends PostgresTestBase {
         assertEquals(403, call.apply(stranger).statusCode());
     }
 
+    @Test
+    void staffRoleGets403BeforeRequestBodyValidation() throws Exception {
+        jdbc.update("update memberships set role='STAFF' where user_id=?", userId);
+        var token = jwt.generateAccessToken(userId, tenantId, "STAFF");
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/services"))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"name\":\"\"}"))
+                .build();
+        assertEquals(403, http.send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
+
     private HttpResponse<String> getMe(String token) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/me"))
                 .header("Authorization", "Bearer " + token)
