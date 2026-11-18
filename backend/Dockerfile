@@ -11,7 +11,7 @@ COPY src src
 # Testler CI'da ayrı adımda koşar; imaj yapımı testcontainers'a bağımlı olmamalı.
 RUN ./mvnw -B -q clean package -DskipTests
 
-FROM flyway/flyway:10-alpine AS migration
+FROM flyway/flyway:13-alpine AS migration
 COPY --from=build /workspace/src/main/resources/db/migration /flyway/sql
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
