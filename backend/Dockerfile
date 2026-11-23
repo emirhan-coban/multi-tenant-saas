@@ -14,7 +14,7 @@ RUN ./mvnw -B -q clean package -DskipTests
 FROM flyway/flyway:10-alpine AS migration
 COPY --from=build /workspace/src/main/resources/db/migration /flyway/sql
 
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:24-jre-alpine AS runtime
 WORKDIR /app
 
 # Uygulama root olmayan bir kullanıcıyla çalışır.
